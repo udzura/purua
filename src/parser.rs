@@ -10,9 +10,25 @@ pub enum Rule {
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
+    Stat(
+        StatKind,
+        Option<Box<Rule>>,
+        Option<Box<Rule>>,
+        Option<Box<Rule>>,
+        Option<Box<Rule>>,
+        Option<Box<Rule>>,
+    ),
     Var(Box<Rule>),
     Exp(Box<Rule>),
-    StatVarAssign(Box<Rule>, Box<Rule>),
+    FunctionCall(Box<Rule>, Box<Rule>),
+    Args(Box<Rule>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StatKind {
+    Sep,
+    VarAssign,
+    FunctionCall,
 }
 
 pub fn numeral<Input>() -> impl Parser<Input, Output = Box<Rule>>
@@ -65,6 +81,22 @@ where
 //     unimplemented!()
 // }
 
+pub fn args<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    between(token('('), token(')'), exp()).map(|exp| Box::new(Rule::Args(exp)))
+}
+
+pub fn functioncall<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (symbol(), args()).map(|(name, args)| Box::new(Rule::FunctionCall(name, args)))
+}
+
 pub fn exp<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
@@ -78,5 +110,26 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (var(), token('=').skip(spaces()), exp()).map(|(v, _, e)| Box::new(Rule::StatVarAssign(v, e)))
+    choice((
+        attempt((var(), token('=').skip(spaces()), exp())).map(|(v, _, e)| {
+            Box::new(Rule::Stat(
+                StatKind::VarAssign,
+                v.into(),
+                e.into(),
+                None,
+                None,
+                None,
+            ))
+        }),
+        attempt(functioncall()).map(|fc| {
+            Box::new(Rule::Stat(
+                StatKind::FunctionCall,
+                fc.into(),
+                None,
+                None,
+                None,
+                None,
+            ))
+        }),
+    ))
 }
