@@ -22,7 +22,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
 
     let pos = position::Stream::new(text);
     let res = parser.easy_parse(pos)?.0;
-    println!("parsed: {:?}", res.0);
+    println!("parsed: {:?}", res.1);
 
     Ok(())
 }

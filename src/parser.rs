@@ -8,6 +8,7 @@ use combine::*;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
     Nil,
+    Reserved(&'static str),
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
@@ -32,6 +33,16 @@ pub enum StatKind {
     Sep,
     VarAssign,
     FunctionCall,
+}
+
+pub fn reserved<Input>(word: &'static str) -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    string(word)
+        .skip(spaces())
+        .map(|s| Box::new(Rule::Reserved(s)))
 }
 
 pub fn numeral<Input>() -> impl Parser<Input, Output = Box<Rule>>
@@ -106,7 +117,14 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    choice((numeral(), literal_string())).map(|e| Box::new(Rule::Exp(e)))
+    choice((
+        reserved("nil"),
+        reserved("true"),
+        reserved("false"),
+        numeral(),
+        literal_string(),
+    ))
+    .map(|e| Box::new(Rule::Exp(e)))
 }
 
 pub fn stat<Input>() -> impl Parser<Input, Output = Box<Rule>>
