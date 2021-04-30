@@ -33,6 +33,18 @@ pub enum StatKind {
     Sep,
     VarAssign,
     FunctionCall,
+    Label,
+    Break,
+    GoTo,
+    Do,
+    While,
+    Repeat,
+    IfThen,
+    For,
+    ForIn,
+    DeclareFunction,
+    LocalFunction,
+    LocalVar,
 }
 
 pub fn reserved<Input>(word: &'static str) -> impl Parser<Input, Output = Box<Rule>>
@@ -133,6 +145,12 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     choice((
+        token(';').map(|_| Box::new(Rule::Stat(StatKind::Sep, None, None, None, None, None))),
+        attempt(reserved("break"))
+            .map(|_| Box::new(Rule::Stat(StatKind::Break, None, None, None, None, None))),
+        attempt((reserved("do"), block(), reserved("end"))).map(|(_, blk, _)| {
+            Box::new(Rule::Stat(StatKind::Do, blk.into(), None, None, None, None))
+        }),
         attempt((var(), token('=').skip(spaces()), exp())).map(|(v, _, e)| {
             Box::new(Rule::Stat(
                 StatKind::VarAssign,
@@ -156,10 +174,12 @@ where
     ))
 }
 
-pub fn block<Input>() -> impl Parser<Input, Output = Box<Rule>>
-where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-{
-    many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Block(ss)))
+parser! {
+    pub fn block[Input]()(Input) -> Box<Rule>
+    where [
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    ] {
+        many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Block(ss)))
+    }
 }
