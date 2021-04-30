@@ -1,15 +1,17 @@
 extern crate combine;
 
 use combine::parser::char::*;
-use combine::stream::position;
 
 use combine::*;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
+    Nil,
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
+    Block(Vec<Box<Rule>>),
     Stat(
         StatKind,
         Option<Box<Rule>>,
@@ -24,6 +26,7 @@ pub enum Rule {
     Args(Box<Rule>),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StatKind {
     Sep,
@@ -55,7 +58,7 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (letter(), many1(alpha_num()))
+    (letter(), many(alpha_num()))
         .skip(spaces())
         .map(|(c, v): (char, String)| Box::new(Rule::Symbol(format!("{}{}", c, v))))
 }
@@ -86,7 +89,8 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    between(token('('), token(')'), exp()).map(|exp| Box::new(Rule::Args(exp)))
+    let empty = Box::new(Rule::Nil);
+    between(token('('), token(')'), exp().or(value(empty))).map(|exp| Box::new(Rule::Args(exp)))
 }
 
 pub fn functioncall<Input>() -> impl Parser<Input, Output = Box<Rule>>
@@ -132,4 +136,12 @@ where
             ))
         }),
     ))
+}
+
+pub fn block<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Block(ss)))
 }
