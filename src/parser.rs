@@ -6,35 +6,45 @@ use combine::stream::position;
 use combine::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expr {
+pub enum Rule {
     Numeral(i32),
+    LiteralString(String),
     Symbol(String),
-    Var(Box<Expr>),
-    Exp(Box<Expr>),
-    StatVarAssign(Box<Expr>, Box<Expr>),
+    Var(Box<Rule>),
+    Exp(Box<Rule>),
+    StatVarAssign(Box<Rule>, Box<Rule>),
 }
 
-pub fn numeral<Input>() -> impl Parser<Input, Output = Box<Expr>>
+pub fn numeral<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     many1(digit())
         .skip(spaces())
-        .map(|d: String| Box::new(Expr::Numeral(d.parse().unwrap())))
+        .map(|d: String| Box::new(Rule::Numeral(d.parse().unwrap())))
 }
 
-pub fn symbol<Input>() -> impl Parser<Input, Output = Box<Expr>>
+pub fn literal_string<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    between(token('"'), token('"'), many(satisfy(|c| c != '"')))
+        .map(|s: String| Box::new(Rule::LiteralString(s)))
+}
+
+pub fn symbol<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     (letter(), many1(alpha_num()))
         .skip(spaces())
-        .map(|(c, v): (char, String)| Box::new(Expr::Symbol(format!("{}{}", c, v))))
+        .map(|(c, v): (char, String)| Box::new(Rule::Symbol(format!("{}{}", c, v))))
 }
 
-pub fn var<Input>() -> impl Parser<Input, Output = Box<Expr>>
+pub fn var<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
@@ -44,10 +54,10 @@ where
     //     (prefixexp(), char('['), exp(), char(']')),
     //     (prefixexp(), char('.'), symbol()),
     // ))
-    symbol().map(|sym| Box::new(Expr::Var(sym)))
+    symbol().map(|sym| Box::new(Rule::Var(sym)))
 }
 
-// pub fn prefixexp<Input>() -> impl Parser<Input, Output = Box<Expr>>
+// pub fn prefixexp<Input>() -> impl Parser<Input, Output = Box<Rule>>
 // where
 //     Input: Stream<Token = char>,
 //     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
@@ -55,19 +65,18 @@ where
 //     unimplemented!()
 // }
 
-pub fn exp<Input>() -> impl Parser<Input, Output = Box<Expr>>
+pub fn exp<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    //choice((numeral(), ...))
-    numeral().map(|sym| Box::new(Expr::Exp(sym)))
+    choice((numeral(), literal_string())).map(|e| Box::new(Rule::Exp(e)))
 }
 
-pub fn stat<Input>() -> impl Parser<Input, Output = Box<Expr>>
+pub fn stat<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (var(), token('=').skip(spaces()), exp()).map(|(v, _, e)| Box::new(Expr::StatVarAssign(v, e)))
+    (var(), token('=').skip(spaces()), exp()).map(|(v, _, e)| Box::new(Rule::StatVarAssign(v, e)))
 }
