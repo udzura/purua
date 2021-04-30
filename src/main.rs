@@ -7,6 +7,8 @@ use combine::stream::position;
 
 use combine::{chainl1, many1, skip_many, EasyParser, ParseError, Parser, Stream};
 
+pub mod parser;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Expr {
     Number(i32),
@@ -71,7 +73,7 @@ where
 }
 
 fn main() {
-    let text = env::args().nth(1).expect("Usage command EXPR");
+    let text = env::args().nth(1).unwrap_or("xxx = 1".to_string());
     match do_main(&text) {
         Ok(_) => println!("OK"),
         Err(err) => println!("{}", err),
@@ -79,10 +81,12 @@ fn main() {
 }
 
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
-    let mut parser = myparser();
+    //let mut parser = myparser();
+    let mut parser = parser::stat();
 
     let pos = position::Stream::new(text);
     let res = parser.easy_parse(pos)?.0;
     println!("parsed: {:?}", res);
+
     Ok(())
 }
