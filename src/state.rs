@@ -1,4 +1,5 @@
 use crate::value::*;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -29,7 +30,11 @@ impl<'a> Registry<'a> {
         self.top
     }
 
-    pub fn to_int(&mut self, pos: usize) -> Result<i64, LuaError> {
+    pub fn top(&self) -> Option<&Value> {
+        self.array.get(self.top - 1)
+    }
+
+    pub fn to_int(&self, pos: usize) -> Result<i64, LuaError> {
         let idx = self.top + 1 - pos;
         let value = &self.array[idx];
         value.to_int().ok_or(LuaError {
@@ -37,8 +42,8 @@ impl<'a> Registry<'a> {
         })
     }
 
-    pub fn to_string(&mut self, pos: usize) -> Result<String, LuaError> {
-        let idx = self.top + 1 - pos;
+    pub fn to_string(&self, pos: usize) -> Result<String, LuaError> {
+        let idx = self.top - pos;
         let value = &self.array[idx];
         value.to_string().ok_or(LuaError {
             message: "TypeError: cannot cast into int",
@@ -47,8 +52,8 @@ impl<'a> Registry<'a> {
 }
 
 pub struct LuaState<'a, 'b> {
-    pub g: Global<'a, 'b>,
-    pub reg: Registry<'b>,
+    pub g: RefCell<Global<'a, 'b>>,
+    pub reg: RefCell<Registry<'b>>,
 }
 
 impl<'a, 'b> LuaState<'a, 'b> {
@@ -61,6 +66,9 @@ impl<'a, 'b> LuaState<'a, 'b> {
             max_size: reg_size,
         };
 
-        Self { g, reg }
+        Self {
+            g: RefCell::new(g),
+            reg: RefCell::new(reg),
+        }
     }
 }
