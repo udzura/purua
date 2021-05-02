@@ -34,8 +34,13 @@ impl<'a> Registry<'a> {
         self.array.get(self.top - 1)
     }
 
+    pub fn pop(&mut self) -> Option<Value> {
+        self.top -= 1;
+        self.array.pop()
+    }
+
     pub fn to_int(&self, pos: usize) -> Result<i64, LuaError> {
-        let idx = self.top + 1 - pos;
+        let idx = self.top - pos;
         let value = &self.array[idx];
         value.to_int().ok_or(LuaError {
             message: "TypeError: cannot cast into int",
