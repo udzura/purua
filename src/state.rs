@@ -76,4 +76,11 @@ impl<'a, 'b> LuaState<'a, 'b> {
             reg: RefCell::new(reg),
         }
     }
+
+    pub fn register_fn(&self, name: &'a str, func: impl Fn(&LuaState) -> i32 + 'static) {
+        self.g
+            .borrow_mut()
+            .global
+            .insert(name, Value::Function(Box::new(func)));
+    }
 }

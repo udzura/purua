@@ -91,12 +91,9 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
 
     let l = LuaState::new(65535);
 
-    l.g.borrow_mut()
-        .global
-        .insert("print", Value::Function(Box::new(lua_print)));
-    l.g.borrow_mut()
-        .global
-        .insert("fib", Value::Function(Box::new(lua_fib)));
+    // register fn
+    l.register_fn("print", lua_print);
+    l.register_fn("fib", lua_fib);
 
     // calling print()
     l.reg
