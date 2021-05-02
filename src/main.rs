@@ -49,29 +49,15 @@ fn lua_fib(l: &LuaState) -> i32 {
                 let mut r0 = 0;
                 let mut r1 = 0;
 
-                l.reg.borrow_mut().push(Value::Number(v - 2));
-                let g = l.g.borrow();
-                let val = g.global.get("fib").expect("function not found").clone();
-
-                if let Value::Function(f) = val {
-                    let _ = f.call((l,));
-                    if let Value::Number(r) = l.reg.borrow_mut().pop().unwrap() {
-                        r0 = r;
-                    }
+                let ret = l.global_funcall1("fib", Value::Number(v - 2)).unwrap();
+                if let Value::Number(r) = ret {
+                    r0 = r;
                 }
-                l.reg.borrow_mut().pop();
 
-                l.reg.borrow_mut().push(Value::Number(v - 1));
-                let g = l.g.borrow();
-                let val = g.global.get("fib").expect("function not found").clone();
-
-                if let Value::Function(f) = val {
-                    let _ = f.call((l,));
-                    if let Value::Number(r) = l.reg.borrow_mut().pop().unwrap() {
-                        r1 = r;
-                    }
+                let ret = l.global_funcall1("fib", Value::Number(v - 1)).unwrap();
+                if let Value::Number(r) = ret {
+                    r1 = r;
                 }
-                l.reg.borrow_mut().pop();
 
                 l.reg.borrow_mut().push(Value::Number(r0 + r1));
             }
@@ -92,32 +78,19 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     let l = LuaState::new(65535);
 
     // register fn
-    l.register_fn("print", lua_print);
-    l.register_fn("fib", lua_fib);
+    l.register_global_fn("print", lua_print);
+    l.register_global_fn("fib", lua_fib);
 
     // calling print()
-    l.reg
-        .borrow_mut()
-        .push(Value::LuaString("Hello, Purua! This is from args\n"));
-    let g = l.g.borrow();
-    let val = g.global.get("print").expect("function not found").clone();
-
-    if let Value::Function(f) = val {
-        let _ = f.call((&l,));
-        eprintln!("return value of print(): {:?}", l.reg.borrow_mut().pop());
-    }
-    l.reg.borrow_mut().pop(); // remove arg from stack
+    let ret = l.global_funcall1(
+        "print",
+        Value::LuaString("Hello, Purua! This is arguement you specified\n"),
+    )?;
+    eprintln!("return value of print(): {:?}", ret);
 
     // calling fib(8)
-    l.reg.borrow_mut().push(Value::Number(8));
-    let g = l.g.borrow();
-    let val = g.global.get("fib").expect("function not found").clone();
-
-    if let Value::Function(f) = val {
-        let _ = f.call((&l,));
-        eprintln!("return value of fib(8): {:?}", l.reg.borrow_mut().pop());
-    }
-    l.reg.borrow_mut().pop(); // remove arg from stack
+    let ret = l.global_funcall1("fib", Value::Number(8))?;
+    eprintln!("return value of print(): {:?}", ret);
 
     Ok(())
 }

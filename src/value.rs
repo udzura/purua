@@ -1,6 +1,6 @@
 use crate::state::LuaState;
 use std::fmt;
-type LuaFn = Box<dyn Fn(&LuaState) -> i32>;
+pub type LuaFn = Box<dyn Fn(&LuaState) -> i32>;
 
 pub enum Value<'a> {
     Nil,
