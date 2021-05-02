@@ -1,5 +1,6 @@
+use crate::state::LuaState;
 use std::fmt;
-type LuaFn = Box<dyn FnMut() -> i32>;
+type LuaFn = Box<dyn Fn(&LuaState) -> i32>;
 
 pub enum Value<'a> {
     Nil,
@@ -13,6 +14,13 @@ impl Value<'_> {
     pub fn to_int(&self) -> Option<i64> {
         match self {
             Value::Number(n) => Some(*n),
+            _ => None,
+        }
+    }
+
+    pub fn to_string(&self) -> Option<String> {
+        match self {
+            Value::LuaString(s) => Some(s.to_string()),
             _ => None,
         }
     }

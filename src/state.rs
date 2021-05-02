@@ -1,6 +1,5 @@
 use crate::value::*;
 use std::collections::HashMap;
-use std::error::Error;
 
 #[derive(Debug)]
 pub struct LuaError {
@@ -34,6 +33,14 @@ impl<'a> Registry<'a> {
         let idx = self.top + 1 - pos;
         let value = &self.array[idx];
         value.to_int().ok_or(LuaError {
+            message: "TypeError: cannot cast into int",
+        })
+    }
+
+    pub fn to_string(&mut self, pos: usize) -> Result<String, LuaError> {
+        let idx = self.top + 1 - pos;
+        let value = &self.array[idx];
+        value.to_string().ok_or(LuaError {
             message: "TypeError: cannot cast into int",
         })
     }
