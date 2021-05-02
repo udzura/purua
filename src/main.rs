@@ -12,7 +12,7 @@ use std::env;
 
 mod parser;
 mod state;
-use state::LuaState;
+use state::{LuaError, LuaState};
 mod value;
 use value::Value;
 
@@ -27,44 +27,34 @@ fn main() {
     };
 }
 
-fn lua_print(l: &LuaState) -> i32 {
-    let v = l.reg.borrow().to_string(1);
-    match v {
-        Ok(s) => {
-            print!("{}", s);
-            l.reg.borrow_mut().push(Value::Nil);
-            1
-        }
-        Err(_) => -1,
-    }
+fn lua_print(l: &LuaState) -> Result<i32, LuaError> {
+    let v = l.arg_string(1)?;
+    print!("{}", v);
+    Ok(0)
 }
 
-fn lua_fib(l: &LuaState) -> i32 {
-    let v = l.reg.borrow().to_int(1);
-    match v {
-        Ok(v) => {
-            if v <= 1 {
-                l.returns(Value::Number(1));
-            } else {
-                let mut r0 = 0;
-                let mut r1 = 0;
+fn lua_fib(l: &LuaState) -> Result<i32, LuaError> {
+    let v = l.arg_int(1)?;
 
-                let ret = l.global_funcall1("fib", Value::Number(v - 2)).unwrap();
-                if let Value::Number(r) = ret {
-                    r0 = r;
-                }
+    if v <= 1 {
+        l.returns(Value::Number(1));
+    } else {
+        let mut r0 = 0;
+        let mut r1 = 0;
 
-                let ret = l.global_funcall1("fib", Value::Number(v - 1)).unwrap();
-                if let Value::Number(r) = ret {
-                    r1 = r;
-                }
-
-                l.returns(Value::Number(r0 + r1));
-            }
-            1
+        let ret = l.global_funcall1("fib", Value::Number(v - 2))?;
+        if let Value::Number(r) = ret {
+            r0 = r;
         }
-        Err(_) => 0,
+
+        let ret = l.global_funcall1("fib", Value::Number(v - 1))?;
+        if let Value::Number(r) = ret {
+            r1 = r;
+        }
+
+        l.returns(Value::Number(r0 + r1));
     }
+    Ok(1)
 }
 
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
@@ -88,9 +78,18 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     )?;
     eprintln!("return value of print(): {:?}", ret);
 
-    // calling fib(8)
+    // calling fib()
+    let ret = l.global_funcall1("fib", Value::Number(4))?;
+    eprintln!("return value of fib(4): {:?}", ret);
+
     let ret = l.global_funcall1("fib", Value::Number(8))?;
-    eprintln!("return value of print(): {:?}", ret);
+    eprintln!("return value of fib(8): {:?}", ret);
+
+    let ret = l.global_funcall1("fib", Value::Number(12))?;
+    eprintln!("return value of fib(12): {:?}", ret);
+
+    let ret = l.global_funcall1("fib", Value::Number(30))?;
+    eprintln!("return value of fib(30): {:?}", ret);
 
     Ok(())
 }

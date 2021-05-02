@@ -84,7 +84,19 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
         }
     }
 
-    pub fn register_global_fn(&self, name: &'a str, func: impl Fn(&LuaState) -> i32 + 'static) {
+    pub fn arg_int(&self, pos: usize) -> Result<i64, LuaError> {
+        self.reg.borrow().to_int(pos)
+    }
+
+    pub fn arg_string(&self, pos: usize) -> Result<String, LuaError> {
+        self.reg.borrow().to_string(pos)
+    }
+
+    pub fn register_global_fn(
+        &self,
+        name: &'a str,
+        func: impl Fn(&LuaState) -> Result<i32, LuaError> + 'static,
+    ) {
         self.g
             .borrow_mut()
             .global
@@ -98,26 +110,21 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
         let val = g
             .global
             .get(name)
-            .ok_or(LuaError {
-                message: format!("Specified func {} not found", name),
-            })?
+            .ok_or(self.error(format!("Specified func {} not found", name)))?
             .clone();
 
         let oldtop = self.reg.borrow().top;
         let mut retnr = 0;
         if let Value::Function(func) = val {
-            retnr = func.call((self,));
+            retnr = func.call((self,))?;
             if oldtop + retnr as usize != self.reg.borrow().top {
-                return Err(LuaError {
-                    message: format!("func {} should be return {} values", name, retnr),
-                });
+                return Err(self.error(format!("func {} should be return {} values", name, retnr)));
             }
         } else {
-            return Err(LuaError {
-                message: format!("Specified name {} is not func", name),
-            });
+            return Err(self.error(format!("Specified name {} is not func", name)));
         }
 
+        // TODO: multireturn
         let vret = if retnr == 1 {
             self.reg.borrow_mut().ensure_pop()? // get function return value
         } else {
@@ -130,5 +137,11 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
 
     pub fn returns(&self, retval: Value<'c>) {
         self.reg.borrow_mut().push(retval);
+    }
+
+    pub fn error(&self, msg: impl Into<String>) -> LuaError {
+        LuaError {
+            message: msg.into(),
+        }
     }
 }
