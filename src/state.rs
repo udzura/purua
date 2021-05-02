@@ -31,7 +31,7 @@ impl<'a> Registry<'a> {
         self.top
     }
 
-    pub fn top(&self) -> Option<&Value> {
+    pub fn last(&self) -> Option<&Value> {
         self.array.get(self.top - 1)
     }
 
@@ -103,17 +103,32 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
             })?
             .clone();
 
+        let oldtop = self.reg.borrow().top;
+        let mut retnr = 0;
         if let Value::Function(func) = val {
-            let _ = func.call((self,));
+            retnr = func.call((self,));
+            if oldtop + retnr as usize != self.reg.borrow().top {
+                return Err(LuaError {
+                    message: format!("func {} should be return {} values", name, retnr),
+                });
+            }
         } else {
             return Err(LuaError {
                 message: format!("Specified name {} is not func", name),
             });
         }
 
-        let vret = self.reg.borrow_mut().ensure_pop()?; // get function return value
+        let vret = if retnr == 1 {
+            self.reg.borrow_mut().ensure_pop()? // get function return value
+        } else {
+            Value::Nil
+        };
         let _ = self.reg.borrow_mut().ensure_pop()?; // remove arg from stack - 1 time
 
         Ok(vret)
+    }
+
+    pub fn returns(&self, retval: Value<'c>) {
+        self.reg.borrow_mut().push(retval);
     }
 }

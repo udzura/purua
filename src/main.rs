@@ -44,7 +44,7 @@ fn lua_fib(l: &LuaState) -> i32 {
     match v {
         Ok(v) => {
             if v <= 1 {
-                l.reg.borrow_mut().push(Value::Number(1));
+                l.returns(Value::Number(1));
             } else {
                 let mut r0 = 0;
                 let mut r1 = 0;
@@ -59,11 +59,11 @@ fn lua_fib(l: &LuaState) -> i32 {
                     r1 = r;
                 }
 
-                l.reg.borrow_mut().push(Value::Number(r0 + r1));
+                l.returns(Value::Number(r0 + r1));
             }
             1
         }
-        Err(_) => -1,
+        Err(_) => 0,
     }
 }
 
