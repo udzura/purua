@@ -14,18 +14,18 @@ impl std::fmt::Display for LuaError {
 }
 impl std::error::Error for LuaError {}
 
-pub struct Global<'a, 'b> {
-    pub global: HashMap<&'a str, Value<'b>>,
+pub struct Global<'a> {
+    pub global: HashMap<&'a str, Value>,
 }
 
-pub struct Registry<'a> {
-    pub array: Vec<Value<'a>>,
+pub struct Registry {
+    pub array: Vec<Value>,
     pub top: usize,
     pub max_size: usize,
 }
 
-impl<'a> Registry<'a> {
-    pub fn push(&mut self, value: Value<'a>) -> usize {
+impl Registry {
+    pub fn push(&mut self, value: Value) -> usize {
         self.array.push(value);
         self.top += 1;
         self.top
@@ -35,12 +35,12 @@ impl<'a> Registry<'a> {
         self.array.get(self.top - 1)
     }
 
-    pub fn pop(&mut self) -> Option<Value<'a>> {
+    pub fn pop(&mut self) -> Option<Value> {
         self.top -= 1;
         self.array.pop()
     }
 
-    pub fn ensure_pop(&mut self) -> Result<Value<'a>, LuaError> {
+    pub fn ensure_pop(&mut self) -> Result<Value, LuaError> {
         self.pop().ok_or(LuaError {
             message: "Cannot find value from regisrty, maybe empty".to_string(),
         })
@@ -63,12 +63,12 @@ impl<'a> Registry<'a> {
     }
 }
 
-pub struct LuaState<'a, 'b, 'c> {
-    pub g: RefCell<Global<'a, 'b>>,
-    pub reg: RefCell<Registry<'c>>,
+pub struct LuaState<'a> {
+    pub g: RefCell<Global<'a>>,
+    pub reg: RefCell<Registry>,
 }
 
-impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
+impl<'a> LuaState<'a> {
     pub fn new(reg_size: usize) -> Self {
         let global = HashMap::new();
         let g = Global { global };
@@ -92,6 +92,14 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
         self.reg.borrow().to_string(pos)
     }
 
+    pub fn assign_global(&self, name: &'a str, value: Value) {
+        let mut g = self.g.borrow_mut();
+        if g.global.contains_key(name) {
+            g.global.remove(name);
+        }
+        g.global.insert(name, value);
+    }
+
     pub fn register_global_fn(
         &self,
         name: &'a str,
@@ -103,7 +111,7 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
             .insert(name, Value::Function(Box::new(func)));
     }
 
-    pub fn global_funcall1(&self, name: &'_ str, arg1: Value<'c>) -> Result<Value<'c>, LuaError> {
+    pub fn global_funcall1(&self, name: &'_ str, arg1: Value) -> Result<Value, LuaError> {
         self.reg.borrow_mut().push(arg1);
 
         let g = self.g.borrow();
@@ -135,7 +143,7 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
         Ok(vret)
     }
 
-    pub fn returns(&self, retval: Value<'c>) {
+    pub fn returns(&self, retval: Value) {
         self.reg.borrow_mut().push(retval);
     }
 

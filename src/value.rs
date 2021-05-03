@@ -2,15 +2,15 @@ use crate::state::{LuaError, LuaState};
 use std::fmt;
 pub type LuaFn = Box<dyn Fn(&LuaState) -> Result<i32, LuaError>>;
 
-pub enum Value<'a> {
+pub enum Value {
     Nil,
     Bool(bool),
     Number(i64),
-    LuaString(&'a str),
+    LuaString(String),
     Function(LuaFn),
 }
 
-impl Value<'_> {
+impl Value {
     pub fn to_int(&self) -> Option<i64> {
         match self {
             Value::Number(n) => Some(*n),
@@ -26,7 +26,7 @@ impl Value<'_> {
     }
 }
 
-impl fmt::Debug for Value<'_> {
+impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Value::Nil => f.write_str("Value::Nil"),
