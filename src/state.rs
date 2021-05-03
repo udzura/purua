@@ -100,6 +100,16 @@ impl<'a> LuaState<'a> {
         g.global.insert(name, value);
     }
 
+    pub fn get_global(&self, name: &'a str) -> Option<Value> {
+        self.g.borrow().global.get(name).map(|v| match v {
+            Value::Nil => Value::Nil,
+            Value::Bool(b) => Value::Bool(b.to_owned()),
+            Value::Number(n) => Value::Number(n.to_owned()),
+            Value::LuaString(s) => Value::LuaString(s.clone()),
+            Value::Function(_) => Value::Nil,
+        })
+    }
+
     pub fn register_global_fn(
         &self,
         name: &'a str,
@@ -129,7 +139,7 @@ impl<'a> LuaState<'a> {
                 return Err(self.error(format!("func {} should be return {} values", name, retnr)));
             }
         } else {
-            return Err(self.error(format!("Specified name {} is not func", name)));
+            return Err(self.error(format!("Specified name {} is not func {:?}", name, val)));
         }
 
         // TODO: multireturn

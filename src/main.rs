@@ -30,7 +30,7 @@ fn main() {
     match do_main(&text) {
         Ok(_) => info!("Purua exited successfully"),
         Err(err) => {
-            error!("{}", err);
+            eprintln!("{}", err);
             std::process::exit(1);
         }
     };
@@ -43,6 +43,13 @@ fn lua_print(l: &LuaState) -> Result<i32, LuaError> {
 }
 
 fn lua_global_set(l: &LuaState) -> Result<i32, LuaError> {
+    let v = l.arg_string(1)?;
+    println!("set {}", v);
+    l.assign_global("foo", Value::LuaString(v));
+    Ok(0)
+}
+
+fn lua_global_get(l: &LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
     println!("set {}", v);
     l.assign_global("foo", Value::LuaString(v));
@@ -80,7 +87,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     // register fn
     l.register_global_fn("print", lua_print);
     l.register_global_fn("fib", lua_fib);
-    l.register_global_fn("global_set", lua_global_set);
+    l.register_global_fn("globalset", lua_global_set);
     l.assign_global("foo", Value::LuaString("bar".to_string()));
 
     let mut parser = (spaces(), parser::chunk());
@@ -88,7 +95,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     let pos = position::Stream::new(text);
     let res = parser.easy_parse(pos)?.0;
     let chunk = res.1;
-    // println!("parsed: {:?}", &chunk);
+    println!("parsed: {:?}", &chunk);
 
     eval::eval_chunk(&l, chunk.as_ref())?;
     l.assign_global("foo", Value::LuaString("buz".to_string()));
@@ -96,7 +103,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     // // calling print()
     // let ret = l.global_funcall1(
     //     "print",
-    //     Value::LuaString("Hello, Purua! This is arguement you specified\n"),
+    //     Value::LuaString("Hello, Purua! This is arguement you specified\n".to_string()),
     // )?;
     // eprintln!("return value of print(): {:?}", ret);
 

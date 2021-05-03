@@ -48,6 +48,7 @@ pub fn eval_stat(l: &LuaState, stat: &Rule) -> Result<(), LuaError> {
                 }
                 StatKind::FunctionCall => {
                     let (name, arg1) = funcall_to_name_args(a.as_ref().unwrap())?;
+                    println!("get param {} {:?}", &name, &arg1);
                     l.global_funcall1(&name, arg1)?;
                 }
                 _ => unimplemented!("Pull request is welcomed!"),
