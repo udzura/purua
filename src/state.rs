@@ -1,6 +1,6 @@
 use crate::value::*;
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
 pub struct LuaError {
@@ -106,7 +106,7 @@ impl<'a> LuaState<'a> {
             Value::Bool(b) => Value::Bool(b.to_owned()),
             Value::Number(n) => Value::Number(n.to_owned()),
             Value::LuaString(s) => Value::LuaString(s.clone()),
-            Value::Function(_) => Value::Nil,
+            Value::Function(f) => Value::Function(Rc::clone(f)),
         })
     }
 
@@ -118,7 +118,7 @@ impl<'a> LuaState<'a> {
         self.g
             .borrow_mut()
             .global
-            .insert(name, Value::Function(Box::new(func)));
+            .insert(name, Value::Function(Rc::new(func)));
     }
 
     pub fn global_funcall1(&self, name: &'_ str, arg1: Value) -> Result<Value, LuaError> {
@@ -128,18 +128,20 @@ impl<'a> LuaState<'a> {
         let val = g
             .global
             .get(name)
-            .ok_or(self.error(format!("Specified func {} not found", name)))?
-            .clone();
+            .ok_or(self.error(format!("Specified func {} not found", name)))?;
 
         let oldtop = self.reg.borrow().top;
         let mut retnr = 0;
-        if let Value::Function(func) = val {
-            retnr = func.call((self,))?;
-            if oldtop + retnr as usize != self.reg.borrow().top {
-                return Err(self.error(format!("func {} should be return {} values", name, retnr)));
-            }
+        let func = if let Value::Function(func) = val {
+            Rc::clone(func)
         } else {
             return Err(self.error(format!("Specified name {} is not func {:?}", name, val)));
+        };
+        std::mem::drop(g); // Release g's borrowing
+
+        retnr = func.call((self,))?;
+        if oldtop + retnr as usize != self.reg.borrow().top {
+            return Err(self.error(format!("func {} should be return {} values", name, retnr)));
         }
 
         // TODO: multireturn

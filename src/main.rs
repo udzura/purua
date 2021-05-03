@@ -44,15 +44,15 @@ fn lua_print(l: &LuaState) -> Result<i32, LuaError> {
 
 fn lua_global_set(l: &LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
-    println!("set {}", v);
+    println!("set foo={}", v);
     l.assign_global("foo", Value::LuaString(v));
     Ok(0)
 }
 
 fn lua_global_get(l: &LuaState) -> Result<i32, LuaError> {
-    let v = l.arg_string(1)?;
-    println!("set {}", v);
-    l.assign_global("foo", Value::LuaString(v));
+    if let Some(v) = l.get_global("foo") {
+        println!("get foo={:?}", v);
+    }
     Ok(0)
 }
 
@@ -88,6 +88,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     l.register_global_fn("print", lua_print);
     l.register_global_fn("fib", lua_fib);
     l.register_global_fn("globalset", lua_global_set);
+    l.register_global_fn("globalget", lua_global_get);
     l.assign_global("foo", Value::LuaString("bar".to_string()));
 
     let mut parser = (spaces(), parser::chunk());
