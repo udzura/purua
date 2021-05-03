@@ -1,7 +1,6 @@
 extern crate combine;
 
 use combine::parser::char::*;
-
 use combine::*;
 
 #[allow(dead_code)]
@@ -12,7 +11,8 @@ pub enum Rule {
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
-    Block(Vec<Box<Rule>>),
+    Chunk(Vec<Box<Rule>>),
+    Block(Box<Rule>),
     Stat(
         StatKind,
         Option<Box<Rule>>,
@@ -73,6 +73,10 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     between(token('"'), token('"'), many(satisfy(|c| c != '"')))
+        .then(|s: String| {
+            let s = s.replace("\\n", "\n");
+            value(s)
+        })
         .map(|s: String| Box::new(Rule::LiteralString(s)))
 }
 
@@ -174,12 +178,20 @@ where
     ))
 }
 
+pub fn chunk<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Chunk(ss)))
+}
+
 parser! {
     pub fn block[Input]()(Input) -> Box<Rule>
     where [
         Input: Stream<Token = char>,
         Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     ] {
-        many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Block(ss)))
+        chunk().map(|blk| Box::new(Rule::Block(blk)))
     }
 }

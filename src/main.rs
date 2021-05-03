@@ -6,22 +6,31 @@ extern crate combine;
 use std::cell::RefCell;
 use std::env;
 
-// use combine::parser::char::spaces;
-// use combine::stream::position;
-// use combine::EasyParser;
+use combine::parser::char::spaces;
+use combine::stream::position;
+use combine::EasyParser;
+
+use env_logger;
+use log::*;
 
 mod parser;
 mod state;
 use state::{LuaError, LuaState};
 mod value;
 use value::Value;
+mod eval;
 
 fn main() {
-    let text = env::args().nth(1).unwrap_or("sample = 1".to_string());
+    let mut builder = env_logger::Builder::from_env("PULUA_LOG");
+    builder.init();
+
+    let text = env::args()
+        .nth(1)
+        .unwrap_or("print(\"Hello, Purua!\\n\")".to_string());
     match do_main(&text) {
-        Ok(_) => eprintln!("Purua exited successfully"),
+        Ok(_) => info!("Purua exited successfully"),
         Err(err) => {
-            eprintln!("{}", err);
+            error!("{}", err);
             std::process::exit(1);
         }
     };
@@ -59,37 +68,40 @@ fn lua_fib(l: &LuaState) -> Result<i32, LuaError> {
 
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     //let mut parser = myparser();
-    // let mut parser = (spaces(), parser::block());
-
-    // let pos = position::Stream::new(text);
-    // let res = parser.easy_parse(pos)?.0;
-    // println!("parsed: {:?}", res.1);
-
     let l = LuaState::new(65535);
 
     // register fn
     l.register_global_fn("print", lua_print);
     l.register_global_fn("fib", lua_fib);
 
-    // calling print()
-    let ret = l.global_funcall1(
-        "print",
-        Value::LuaString("Hello, Purua! This is arguement you specified\n"),
-    )?;
-    eprintln!("return value of print(): {:?}", ret);
+    let mut parser = (spaces(), parser::chunk());
 
-    // calling fib()
-    let ret = l.global_funcall1("fib", Value::Number(4))?;
-    eprintln!("return value of fib(4): {:?}", ret);
+    let pos = position::Stream::new(text);
+    let res = parser.easy_parse(pos)?.0;
+    let chunk = res.1;
+    // println!("parsed: {:?}", &chunk);
 
-    let ret = l.global_funcall1("fib", Value::Number(8))?;
-    eprintln!("return value of fib(8): {:?}", ret);
+    eval::eval_chunk(&l, chunk.as_ref())?;
 
-    let ret = l.global_funcall1("fib", Value::Number(12))?;
-    eprintln!("return value of fib(12): {:?}", ret);
+    // // calling print()
+    // let ret = l.global_funcall1(
+    //     "print",
+    //     Value::LuaString("Hello, Purua! This is arguement you specified\n"),
+    // )?;
+    // eprintln!("return value of print(): {:?}", ret);
 
-    let ret = l.global_funcall1("fib", Value::Number(30))?;
-    eprintln!("return value of fib(30): {:?}", ret);
+    // // calling fib()
+    // let ret = l.global_funcall1("fib", Value::Number(4))?;
+    // eprintln!("return value of fib(4): {:?}", ret);
+
+    // let ret = l.global_funcall1("fib", Value::Number(8))?;
+    // eprintln!("return value of fib(8): {:?}", ret);
+
+    // let ret = l.global_funcall1("fib", Value::Number(12))?;
+    // eprintln!("return value of fib(12): {:?}", ret);
+
+    // let ret = l.global_funcall1("fib", Value::Number(30))?;
+    // eprintln!("return value of fib(30): {:?}", ret);
 
     Ok(())
 }

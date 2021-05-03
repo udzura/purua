@@ -103,7 +103,7 @@ impl<'a, 'b, 'c> LuaState<'a, 'b, 'c> {
             .insert(name, Value::Function(Box::new(func)));
     }
 
-    pub fn global_funcall1(&self, name: &'a str, arg1: Value<'c>) -> Result<Value<'c>, LuaError> {
+    pub fn global_funcall1(&self, name: &'_ str, arg1: Value<'c>) -> Result<Value<'c>, LuaError> {
         self.reg.borrow_mut().push(arg1);
 
         let g = self.g.borrow();
