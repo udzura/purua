@@ -191,7 +191,7 @@ parser! {
             attempt(functioncall()),
             attempt(var()),
             between(token('('), token(')'), exp()),
-        ))
+        )).skip(spaces())
             .map(|e| Box::new(Rule::Prefixexp(e)))
     }
 }
