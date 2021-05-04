@@ -2,28 +2,51 @@ use crate::parser::*;
 use crate::state::*;
 use crate::value::Value;
 
-pub fn funcall_to_name_args(fc: &Rule) -> Result<(String, Value), LuaError> {
-    if let Rule::FunctionCall(name, args) = fc {
-        if let Rule::Symbol(name) = name.as_ref() {
-            if let Rule::Args(exp) = args.as_ref() {
-                if let Rule::Exp(val) = exp.as_ref() {
-                    let retname = name.to_string();
-                    match val.as_ref() {
-                        Rule::Numeral(n) => {
-                            return Ok((retname, Value::Number(n.to_owned() as i64)))
-                        }
-                        Rule::LiteralString(s) => {
-                            return Ok((retname, Value::LuaString(s.to_string())))
-                        }
-                        _ => {}
-                    }
-                }
-            }
+use log::debug;
+
+macro_rules! is_exact_rule1 {
+    ($rule:path, $y:expr) => {
+        match $y {
+            $rule(val) => Ok(val),
+            _ => Err(LuaError {
+                message: format!("Invalid rule passed: {:?}", $y),
+            }),
         }
+    };
+}
+
+macro_rules! is_exact_rule2 {
+    ($rule:path, $y:expr) => {
+        match $y {
+            $rule(val1, val2) => Ok((val1, val2)),
+            _ => Err(LuaError {
+                message: format!("Invalid rule passed: {:?}", $y),
+            }),
+        }
+    };
+}
+
+pub fn eval_exp(_l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
+    let exp_: &Box<Rule> = is_exact_rule1!(Rule::Exp, exp)?;
+    match exp_.as_ref() {
+        Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
+        Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
+        _ => Err(LuaError {
+            message: format!("Unsupported rule: {:?}", exp_),
+        }),
     }
-    Err(LuaError {
-        message: "Invalid ast form".to_string(),
-    })
+}
+
+pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
+    let (name, args) = is_exact_rule2!(Rule::FunctionCall, fc)?;
+    let exp = is_exact_rule1!(Rule::Args, args.as_ref())?;
+    let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
+
+    let arg1v = eval_exp(l, exp)?;
+    debug!("get param {} {:?}", name, &arg1v);
+    let ret = l.global_funcall1(name, arg1v)?;
+
+    Ok(ret)
 }
 
 pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {
@@ -47,9 +70,7 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<(), LuaError> {
                     todo!("assign to global")
                 }
                 StatKind::FunctionCall => {
-                    let (name, arg1) = funcall_to_name_args(a.as_ref().unwrap())?;
-                    println!("get param {} {:?}", &name, &arg1);
-                    l.global_funcall1(&name, arg1)?;
+                    eval_funcall(l, a.as_ref().unwrap())?;
                 }
                 _ => unimplemented!("Pull request is welcomed!"),
             }
