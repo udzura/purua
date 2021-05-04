@@ -4,5 +4,6 @@
 pub mod calc;
 pub mod eval;
 pub mod parser;
+pub mod prelude;
 pub mod state;
 pub mod value;
