@@ -36,27 +36,27 @@ fn main() {
     };
 }
 
-fn lua_print(l: &LuaState) -> Result<i32, LuaError> {
+fn lua_print(l: &mut LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
     print!("{}", v);
     Ok(0)
 }
 
-fn lua_global_set(l: &LuaState) -> Result<i32, LuaError> {
+fn lua_global_set(l: &mut LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
     println!("set foo={}", v);
     l.assign_global("foo", Value::LuaString(v));
     Ok(0)
 }
 
-fn lua_global_get(l: &LuaState) -> Result<i32, LuaError> {
+fn lua_global_get(l: &mut LuaState) -> Result<i32, LuaError> {
     if let Some(v) = l.get_global("foo") {
         println!("get foo={:?}", v);
     }
     Ok(0)
 }
 
-fn lua_fib(l: &LuaState) -> Result<i32, LuaError> {
+fn lua_fib(l: &mut LuaState) -> Result<i32, LuaError> {
     let v = l.arg_int(1)?;
 
     if v <= 1 {
@@ -82,7 +82,7 @@ fn lua_fib(l: &LuaState) -> Result<i32, LuaError> {
 
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     //let mut parser = myparser();
-    let l = LuaState::new(65535);
+    let mut l = LuaState::new(65535);
 
     // register fn
     l.register_global_fn("print", lua_print);
@@ -98,7 +98,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     let chunk = res.1;
     println!("parsed: {:?}", &chunk);
 
-    eval::eval_chunk(&l, chunk.as_ref())?;
+    eval::eval_chunk(&mut l, chunk.as_ref())?;
     l.assign_global("foo", Value::LuaString("buz".to_string()));
 
     // // calling print()

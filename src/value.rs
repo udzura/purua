@@ -1,6 +1,6 @@
 use crate::state::{LuaError, LuaState};
 use std::{fmt, rc::Rc};
-pub type LuaFn = Rc<dyn Fn(&LuaState) -> Result<i32, LuaError>>;
+pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
 pub enum Value {
     Nil,

@@ -14,8 +14,8 @@ impl std::fmt::Display for LuaError {
 }
 impl std::error::Error for LuaError {}
 
-pub struct Global<'a> {
-    pub global: HashMap<&'a str, Value>,
+pub struct Global {
+    pub global: HashMap<String, Value>,
 }
 
 pub struct Registry {
@@ -63,12 +63,12 @@ impl Registry {
     }
 }
 
-pub struct LuaState<'a> {
-    pub g: RefCell<Global<'a>>,
-    pub reg: RefCell<Registry>,
+pub struct LuaState {
+    pub g: Global,
+    pub reg: Registry,
 }
 
-impl<'a> LuaState<'a> {
+impl LuaState {
     pub fn new(reg_size: usize) -> Self {
         let global = HashMap::new();
         let g = Global { global };
@@ -78,85 +78,83 @@ impl<'a> LuaState<'a> {
             max_size: reg_size,
         };
 
-        Self {
-            g: RefCell::new(g),
-            reg: RefCell::new(reg),
-        }
+        Self { g, reg }
     }
 
     pub fn arg_int(&self, pos: usize) -> Result<i64, LuaError> {
-        self.reg.borrow().to_int(pos)
+        self.reg.to_int(pos)
     }
 
     pub fn arg_string(&self, pos: usize) -> Result<String, LuaError> {
-        self.reg.borrow().to_string(pos)
+        self.reg.to_string(pos)
     }
 
-    pub fn assign_global(&self, name: &'a str, value: Value) {
-        let mut g = self.g.borrow_mut();
-        if g.global.contains_key(name) {
-            g.global.remove(name);
+    pub fn assign_global(&mut self, name: impl Into<String>, value: Value) {
+        let name: String = name.into();
+        if self.g.global.contains_key(&name) {
+            self.g.global.remove(&name);
         }
-        g.global.insert(name, value);
+        self.g.global.insert(name, value);
     }
 
-    pub fn get_global(&self, name: &'a str) -> Option<Value> {
-        self.g.borrow().global.get(name).map(|v| match v {
+    pub fn get_global(&self, name: impl Into<String>) -> Option<Value> {
+        let name: String = name.into();
+        self.g.global.get(&name).map(|v| match v {
             Value::Nil => Value::Nil,
             Value::Bool(b) => Value::Bool(b.to_owned()),
             Value::Number(n) => Value::Number(n.to_owned()),
             Value::LuaString(s) => Value::LuaString(s.clone()),
-            Value::Function(f) => Value::Function(Rc::clone(f)),
+            Value::Function(f) => Value::Function(f.clone()),
         })
     }
 
-    pub fn register_global_fn(
-        &self,
-        name: &'a str,
-        func: impl Fn(&LuaState) -> Result<i32, LuaError> + 'static,
-    ) {
-        self.g
-            .borrow_mut()
-            .global
-            .insert(name, Value::Function(Rc::new(func)));
+    pub fn register_global_fn(&mut self, name: impl Into<String>, func: LuaFn) {
+        let name: String = name.into();
+        self.g.global.insert(name, Value::Function(func));
     }
 
-    pub fn global_funcall1(&self, name: &'_ str, arg1: Value) -> Result<Value, LuaError> {
-        self.reg.borrow_mut().push(arg1);
-
-        let g = self.g.borrow();
-        let val = g
-            .global
-            .get(name)
-            .ok_or(self.error(format!("Specified func {} not found", name)))?;
-
-        let oldtop = self.reg.borrow().top;
+    pub fn global_funcall1(
+        &mut self,
+        name: impl Into<String>,
+        arg1: Value,
+    ) -> Result<Value, LuaError> {
+        let name: String = name.into();
+        self.reg.push(arg1);
         let mut retnr = 0;
-        let func = if let Value::Function(func) = val {
-            Rc::clone(func)
-        } else {
-            return Err(self.error(format!("Specified name {} is not func {:?}", name, val)));
+        let mut oldtop = 0;
+        let func = {
+            let g = &self.g;
+            let val = g
+                .global
+                .get(&name)
+                .ok_or(self.error(format!("Specified func {} not found", name)))?;
+
+            oldtop = self.reg.top;
+            if let Value::Function(func) = val {
+                func.clone()
+            } else {
+                return Err(self.error(format!("Specified name {} is not func {:?}", name, val)));
+            }
         };
-        std::mem::drop(g); // Release g's borrowing
 
         retnr = func.call((self,))?;
-        if oldtop + retnr as usize != self.reg.borrow().top {
+        if oldtop + retnr as usize != self.reg.top {
             return Err(self.error(format!("func {} should be return {} values", name, retnr)));
         }
 
         // TODO: multireturn
         let vret = if retnr == 1 {
-            self.reg.borrow_mut().ensure_pop()? // get function return value
+            self.reg.ensure_pop()? // get function return value
         } else {
             Value::Nil
         };
-        let _ = self.reg.borrow_mut().ensure_pop()?; // remove arg from stack - 1 time
+        let _ = self.reg.ensure_pop()?; // remove arg from stack - 1 time
 
         Ok(vret)
     }
 
-    pub fn returns(&self, retval: Value) {
-        self.reg.borrow_mut().push(retval);
+    pub fn returns(&mut self, retval: Value) {
+        self.reg.push(retval);
     }
 
     pub fn error(&self, msg: impl Into<String>) -> LuaError {

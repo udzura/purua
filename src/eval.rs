@@ -26,7 +26,7 @@ pub fn funcall_to_name_args(fc: &Rule) -> Result<(String, Value), LuaError> {
     })
 }
 
-pub fn eval_chunk(l: &LuaState, chunk: &Rule) -> Result<(), LuaError> {
+pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {
     match chunk {
         Rule::Chunk(stats) => {
             for stat in stats.into_iter() {
@@ -38,7 +38,7 @@ pub fn eval_chunk(l: &LuaState, chunk: &Rule) -> Result<(), LuaError> {
     }
 }
 
-pub fn eval_stat(l: &LuaState, stat: &Rule) -> Result<(), LuaError> {
+pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<(), LuaError> {
     match stat {
         Rule::Stat(kind, a, _b, _c, _d, _e) => {
             match kind {
