@@ -23,7 +23,7 @@ pub enum Rule {
     ),
     Var(Box<Rule>),
     Exp(Box<Rule>),
-    Prefixexp(Box<Rule>),
+    Prefixexp(Box<Rule>),               // (fc|var|exp)
     FunctionCall(Box<Rule>, Box<Rule>), // symbol, args
     Args(Box<Rule>),
 }

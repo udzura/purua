@@ -2,6 +2,7 @@ use crate::state::{LuaError, LuaState};
 use std::fmt;
 pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
+#[allow(dead_code)]
 pub enum Value {
     Nil,
     Bool(bool),

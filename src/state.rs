@@ -30,6 +30,7 @@ impl Registry {
         self.top
     }
 
+    #[allow(dead_code)]
     pub fn last(&self) -> Option<&Value> {
         self.array.get(self.top - 1)
     }
@@ -119,8 +120,7 @@ impl LuaState {
     ) -> Result<Value, LuaError> {
         let name: String = name.into();
         self.reg.push(arg1);
-        let mut retnr = 0;
-        let mut oldtop = 0;
+        let oldtop = self.reg.top;
         let func = {
             let g = &self.g;
             let val = g
@@ -128,7 +128,6 @@ impl LuaState {
                 .get(&name)
                 .ok_or(self.error(format!("Specified func {} not found", name)))?;
 
-            oldtop = self.reg.top;
             if let Value::Function(func) = val {
                 func.clone()
             } else {
@@ -136,7 +135,7 @@ impl LuaState {
             }
         };
 
-        retnr = func.call((self,))?;
+        let retnr = func.call((self,))?;
         if oldtop + retnr as usize != self.reg.top {
             return Err(self.error(format!("func {} should be return {} values", name, retnr)));
         }

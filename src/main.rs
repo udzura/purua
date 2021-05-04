@@ -68,7 +68,7 @@ fn lua_fib(l: &mut LuaState) -> Result<i32, LuaError> {
 fn main() {
     let mut builder = env_logger::Builder::from_env("PULUA_LOG");
     builder.init();
-    let result = match env::args().nth(1) {
+    match env::args().nth(1) {
         Some(file) => {
             let f = File::open(file).expect("Cannot open file");
             io2main(f)
@@ -82,7 +82,7 @@ where
     R: Read,
 {
     let mut text = String::new();
-    read.read_to_string(&mut text);
+    read.read_to_string(&mut text).expect("read from IO failed");
 
     match do_main(text.as_str()) {
         Ok(_) => info!("Purua exited successfully"),

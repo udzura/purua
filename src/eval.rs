@@ -32,7 +32,7 @@ pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
     match exp_ {
         Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
         Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
-        Rule::Prefixexp(s) => eval_prefixexp(l, exp_),
+        Rule::Prefixexp(_) => eval_prefixexp(l, exp_),
         _ => Err(LuaError {
             message: format!("Unsupported rule: {:?}", exp_),
         }),

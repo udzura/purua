@@ -1,2 +1,3 @@
-print(fib(10))
+nth = 10
+print(fib(nth))
 print("\n")
