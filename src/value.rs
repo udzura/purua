@@ -2,6 +2,7 @@ use crate::function::LuaFunction;
 use std::fmt;
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub enum Value {
     Nil,
     Bool(bool),

@@ -78,14 +78,45 @@ pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
     }
 }
 
+pub fn process_funcname(_l: &mut LuaState, fname: &Rule) -> Result<String, LuaError> {
+    let name = is_exact_rule1!(Rule::FuncName, fname)?;
+    let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
+    Ok(name.to_string())
+}
+
+pub fn process_params(_l: &mut LuaState, params: &Rule) -> Result<Vec<String>, LuaError> {
+    let name = is_exact_rule1!(Rule::ParList1, params)?;
+    let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
+    Ok(vec![name.to_string()])
+}
+
+pub fn eval_funcbody<'a>(
+    l: &mut LuaState,
+    fb: &'a Rule,
+) -> Result<(Vec<String>, &'a Rule), LuaError> {
+    if let Rule::FuncBody(params, body) = fb {
+        let body = body.as_ref();
+        if let Rule::Block(_) = body {
+            let params = if params.is_some() {
+                process_params(l, params.as_ref().unwrap())?
+            } else {
+                vec![]
+            };
+            return Ok((params, body));
+        }
+    }
+    Err(l.error("Invalid composite of funcbody"))
+}
+
 pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<Value, LuaError> {
     match chunk {
         Rule::Chunk(stats, last) => {
             for stat in stats.into_iter() {
                 eval_stat(l, stat.as_ref())?;
             }
-            if let Some(retr) = last {
-                let ret = eval_exp(l, retr)?;
+            if let Some(stat) = last {
+                let exp = is_exact_rule1!(Rule::LastStat, stat.as_ref())?;
+                let ret = eval_exp(l, exp.as_ref())?;
                 Ok(ret)
             } else {
                 Ok(Value::Nil)
@@ -109,6 +140,13 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                     Value::Nil
                 }
                 StatKind::FunctionCall => eval_funcall(l, a.as_ref().unwrap())?,
+                StatKind::DeclareFunction => {
+                    let name = process_funcname(l, a.as_ref().unwrap())?;
+                    let (params, block) = eval_funcbody(l, b.as_ref().unwrap())?;
+
+                    l.register_global_code(name, params, block);
+                    Value::Nil
+                }
                 _ => unimplemented!("Pull request is welcomed!"),
             };
             Ok(v)

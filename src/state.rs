@@ -1,5 +1,5 @@
-use crate::function::*;
 use crate::value::*;
+use crate::{function::*, parser::Rule};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -114,6 +114,18 @@ impl LuaState {
         self.g
             .global
             .insert(name, Value::Function(LuaFunction::from_fn(func)));
+    }
+
+    pub fn register_global_code(
+        &mut self,
+        name: impl Into<String>,
+        params: Vec<String>,
+        block: &Rule,
+    ) {
+        let name: String = name.into();
+        self.g
+            .global
+            .insert(name, Value::Function(LuaFunction::from_code(params, block)));
     }
 
     pub fn global_funcall1(
