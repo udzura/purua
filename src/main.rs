@@ -2,6 +2,7 @@
 #![feature(fn_traits)]
 
 extern crate combine;
+extern crate purua;
 
 use std::env;
 use std::fs::File;
@@ -14,12 +15,7 @@ use combine::EasyParser;
 use env_logger;
 use log::*;
 
-mod parser;
-mod state;
-use state::LuaState;
-mod eval;
-mod prelude;
-mod value;
+use purua::state::LuaState;
 
 fn main() {
     let mut builder = env_logger::Builder::from_env("PULUA_LOG");
@@ -52,16 +48,16 @@ where
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     //let mut parser = myparser();
     let mut l = LuaState::new(65535);
-    prelude::prelude(&mut l);
+    purua::prelude::prelude(&mut l);
 
-    let mut parser = (spaces(), parser::chunk());
+    let mut parser = (spaces(), purua::parser::chunk());
 
     let pos = position::Stream::new(text);
     let res = parser.easy_parse(pos)?.0;
     let chunk = res.1;
     debug!("parsed: {:?}", &chunk);
 
-    eval::eval_chunk(&mut l, chunk.as_ref())?;
+    purua::eval::eval_chunk(&mut l, chunk.as_ref())?;
     //l.assign_global("foo", Value::LuaString("buz".to_string()));
 
     // // calling print()

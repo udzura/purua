@@ -53,10 +53,4 @@ pub fn prelude(l: &mut LuaState) {
     l.register_global_fn("fib", lua_fib);
     l.register_global_fn("globalset", lua_global_set);
     l.register_global_fn("globalget", lua_global_get);
-
-    fn sample(l: &mut LuaState) -> Result<i32, LuaError> {
-        println!("defined");
-        Ok(0)
-    }
-    l.register_global_fn("sample", sample)
 }
