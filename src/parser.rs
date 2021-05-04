@@ -11,7 +11,7 @@ pub enum Rule {
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
-    Chunk(Vec<Box<Rule>>),
+    Chunk(Vec<Box<Rule>>, Option<Box<Rule>>), // vec<stat>, laststat
     Block(Box<Rule>),
     Stat(
         StatKind,
@@ -21,6 +21,7 @@ pub enum Rule {
         Option<Box<Rule>>,
         Option<Box<Rule>>,
     ),
+    LastStat(Box<Rule>),
     Var(Box<Rule>),
     Exp(Box<Rule>),
     Prefixexp(Box<Rule>),               // (fc|var|exp)
@@ -104,14 +105,6 @@ where
     // ))
     symbol().map(|sym| Box::new(Rule::Var(sym)))
 }
-
-// pub fn prefixexp<Input>() -> impl Parser<Input, Output = Box<Rule>>
-// where
-//     Input: Stream<Token = char>,
-//     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-// {
-//     unimplemented!()
-// }
 
 pub fn args<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
@@ -198,12 +191,30 @@ where
     ))
 }
 
+pub fn laststat<Input>() -> impl Parser<Input, Output = Option<Box<Rule>>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    attempt(
+        (
+            reserved("return"),
+            spaces(),
+            exp()
+                .map(|v| Some(Box::new(Rule::LastStat(v))))
+                .or(value(None)),
+        )
+            .map(|(_, _, v)| v),
+    )
+}
+
 pub fn chunk<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    many(stat().skip(spaces())).map(|ss: Vec<Box<Rule>>| Box::new(Rule::Chunk(ss)))
+    (many(stat().skip(spaces())), laststat().or(value(None)))
+        .map(|(ss, last): (Vec<Box<Rule>>, Option<Box<Rule>>)| Box::new(Rule::Chunk(ss, last)))
 }
 
 parser! {

@@ -1,5 +1,4 @@
 use crate::function::LuaFunction;
-use crate::state::{LuaError, LuaState};
 use std::fmt;
 
 #[allow(dead_code)]

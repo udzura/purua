@@ -80,12 +80,16 @@ pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
 
 pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<Value, LuaError> {
     match chunk {
-        Rule::Chunk(stats) => {
-            let mut v = Value::Nil;
+        Rule::Chunk(stats, last) => {
             for stat in stats.into_iter() {
-                v = eval_stat(l, stat.as_ref())?;
+                eval_stat(l, stat.as_ref())?;
             }
-            Ok(v) // last one...
+            if let Some(retr) = last {
+                let ret = eval_exp(l, retr)?;
+                Ok(ret)
+            } else {
+                Ok(Value::Nil)
+            }
         }
         _ => Err(l.error("Not a chunk")),
     }
