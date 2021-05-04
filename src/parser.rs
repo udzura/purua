@@ -79,6 +79,7 @@ where
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
     between(token('"'), token('"'), many(satisfy(|c| c != '"')))
+        .skip(spaces())
         .then(|s: String| {
             let s = s.replace("\\n", "\n");
             value(s)
@@ -252,12 +253,11 @@ where
     attempt(
         (
             reserved("return"),
-            spaces(),
             exp()
                 .map(|v| Some(Box::new(Rule::LastStat(v))))
                 .or(value(None)),
         )
-            .map(|(_, _, v)| v),
+            .map(|(_, v)| v),
     )
 }
 
