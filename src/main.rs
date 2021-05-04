@@ -3,8 +3,9 @@
 
 extern crate combine;
 
-use std::cell::RefCell;
 use std::env;
+use std::fs::File;
+use std::io::{self, Read};
 
 use combine::parser::char::spaces;
 use combine::stream::position;
@@ -19,22 +20,6 @@ use state::{LuaError, LuaState};
 mod value;
 use value::Value;
 mod eval;
-
-fn main() {
-    let mut builder = env_logger::Builder::from_env("PULUA_LOG");
-    builder.init();
-
-    let text = env::args()
-        .nth(1)
-        .unwrap_or("print(\"Hello, Purua!\\n\")".to_string());
-    match do_main(&text) {
-        Ok(_) => info!("Purua exited successfully"),
-        Err(err) => {
-            eprintln!("{}", err);
-            std::process::exit(1);
-        }
-    };
-}
 
 fn lua_print(l: &mut LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
@@ -78,6 +63,34 @@ fn lua_fib(l: &mut LuaState) -> Result<i32, LuaError> {
         l.returns(Value::Number(r0 + r1));
     }
     Ok(1)
+}
+
+fn main() {
+    let mut builder = env_logger::Builder::from_env("PULUA_LOG");
+    builder.init();
+    let result = match env::args().nth(1) {
+        Some(file) => {
+            let f = File::open(file).expect("Cannot open file");
+            io2main(f)
+        }
+        None => io2main(io::stdin()),
+    };
+}
+
+fn io2main<R>(mut read: R)
+where
+    R: Read,
+{
+    let mut text = String::new();
+    read.read_to_string(&mut text);
+
+    match do_main(text.as_str()) {
+        Ok(_) => info!("Purua exited successfully"),
+        Err(err) => {
+            eprintln!("{}", err);
+            std::process::exit(1);
+        }
+    };
 }
 
 fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {

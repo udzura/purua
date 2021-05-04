@@ -1,6 +1,5 @@
 use crate::value::*;
 use std::collections::HashMap;
-use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
 pub struct LuaError {
