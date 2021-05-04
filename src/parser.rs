@@ -30,6 +30,7 @@ pub enum Rule {
     Args(Box<Rule>),
     FuncBody(Option<Box<Rule>>, Box<Rule>), // params, block
     ParList1(Box<Rule>),                    // symbol(s)
+    BinOp(char, Box<Rule>, Box<Rule>),
     Nop,
 }
 
@@ -127,6 +128,49 @@ where
     (symbol(), args()).map(|(name, args)| Box::new(Rule::FunctionCall(name, args)))
 }
 
+pub fn binop1<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    let token = char('+')
+        .or(char('-'))
+        .skip(spaces())
+        .map(|tok| move |d1, d2| Box::new(Rule::BinOp(tok, d1, d2)));
+    chainl1(binop2(), token)
+}
+
+pub fn binop2<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    let token = char('*')
+        .or(char('/'))
+        .skip(spaces())
+        .map(|tok| move |d1, d2| Box::new(Rule::BinOp(tok, d1, d2)));
+    chainl1(exp_(), token)
+}
+
+parser! {
+    // For binop loop
+    pub fn exp_[Input]() (Input) -> Box<Rule>
+    where [
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    ] {
+        choice((
+            attempt(reserved("nil")),
+            attempt(reserved("true")),
+            attempt(reserved("false")),
+            numeral(),
+            literal_string(),
+            prefixexp(),
+        ))
+            .map(|e| Box::new(Rule::Exp(e)))
+    }
+}
+
 parser! {
     pub fn exp[Input]() (Input) -> Box<Rule>
     where [
@@ -137,6 +181,7 @@ parser! {
             attempt(reserved("nil")),
             attempt(reserved("true")),
             attempt(reserved("false")),
+            attempt(binop1()),
             numeral(),
             literal_string(),
             prefixexp(),
