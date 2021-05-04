@@ -23,6 +23,7 @@ pub enum Rule {
     ),
     Var(Box<Rule>),
     Exp(Box<Rule>),
+    Prefixexp(Box<Rule>),
     FunctionCall(Box<Rule>, Box<Rule>), // symbol, args
     Args(Box<Rule>),
 }
@@ -128,19 +129,37 @@ where
     (symbol(), args()).map(|(name, args)| Box::new(Rule::FunctionCall(name, args)))
 }
 
-pub fn exp<Input>() -> impl Parser<Input, Output = Box<Rule>>
-where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-{
-    choice((
-        reserved("nil"),
-        reserved("true"),
-        reserved("false"),
-        numeral(),
-        literal_string(),
-    ))
-    .map(|e| Box::new(Rule::Exp(e)))
+parser! {
+    pub fn exp[Input]() (Input) -> Box<Rule>
+    where [
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    ] {
+        choice((
+            attempt(reserved("nil")),
+            attempt(reserved("true")),
+            attempt(reserved("false")),
+            numeral(),
+            literal_string(),
+            prefixexp(),
+        ))
+            .map(|e| Box::new(Rule::Exp(e)))
+    }
+}
+
+parser! {
+    pub fn prefixexp[Input]() (Input) -> Box<Rule>
+    where [
+        Input: Stream<Token = char>,
+        Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+    ] {
+        choice((
+            attempt(functioncall()),
+            attempt(var()),
+            between(token('('), token(')'), exp()),
+        ))
+            .map(|e| Box::new(Rule::Prefixexp(e)))
+    }
 }
 
 pub fn stat<Input>() -> impl Parser<Input, Output = Box<Rule>>

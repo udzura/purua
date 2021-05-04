@@ -112,7 +112,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     debug!("parsed: {:?}", &chunk);
 
     eval::eval_chunk(&mut l, chunk.as_ref())?;
-    l.assign_global("foo", Value::LuaString("buz".to_string()));
+    //l.assign_global("foo", Value::LuaString("buz".to_string()));
 
     // // calling print()
     // let ret = l.global_funcall1(

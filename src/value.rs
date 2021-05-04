@@ -21,6 +21,7 @@ impl Value {
     pub fn to_string(&self) -> Option<String> {
         match self {
             Value::LuaString(s) => Some(s.to_string()),
+            Value::Number(n) => Some(n.to_string()),
             _ => None,
         }
     }

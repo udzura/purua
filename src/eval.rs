@@ -26,13 +26,35 @@ macro_rules! is_exact_rule2 {
     };
 }
 
-pub fn eval_exp(_l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
+pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
     let exp_: &Box<Rule> = is_exact_rule1!(Rule::Exp, exp)?;
-    match exp_.as_ref() {
+    let exp_ = exp_.as_ref();
+    match exp_ {
         Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
         Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
+        Rule::Prefixexp(s) => eval_prefixexp(l, exp_),
         _ => Err(LuaError {
             message: format!("Unsupported rule: {:?}", exp_),
+        }),
+    }
+}
+
+pub fn eval_get_var(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
+    let var = is_exact_rule1!(Rule::Var, exp)?;
+    let name = is_exact_rule1!(Rule::Symbol, var.as_ref())?;
+
+    l.get_global(name).ok_or(l.error("Variable not found"))
+}
+
+pub fn eval_prefixexp(l: &mut LuaState, pexp: &Rule) -> Result<Value, LuaError> {
+    let value: &Box<Rule> = is_exact_rule1!(Rule::Prefixexp, pexp)?;
+    let value = value.as_ref();
+    match value {
+        Rule::FunctionCall(_, _) => eval_funcall(l, value),
+        Rule::Var(_) => eval_get_var(l, value),
+        Rule::Exp(_) => eval_exp(l, value),
+        _ => Err(LuaError {
+            message: format!("Unsupported rule: {:?}", value),
         }),
     }
 }
@@ -53,7 +75,7 @@ pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {
     match chunk {
         Rule::Chunk(stats) => {
             for stat in stats.into_iter() {
-                eval_stat(l, stat.as_ref());
+                eval_stat(l, stat.as_ref())?;
             }
             Ok(())
         }
