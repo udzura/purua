@@ -61,14 +61,21 @@ pub fn eval_prefixexp(l: &mut LuaState, pexp: &Rule) -> Result<Value, LuaError> 
 
 pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
     let (name, args) = is_exact_rule2!(Rule::FunctionCall, fc)?;
-    let exp = is_exact_rule1!(Rule::Args, args.as_ref())?;
     let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
-
-    let arg1v = eval_exp(l, exp)?;
-    debug!("get param {} {:?}", name, &arg1v);
-    let ret = l.global_funcall1(name, arg1v)?;
-
-    Ok(ret)
+    let exp = is_exact_rule1!(Rule::Args, args.as_ref())?.as_ref();
+    match exp {
+        Rule::Exp(_) => {
+            let arg1v = eval_exp(l, exp)?;
+            debug!("get param {} {:?}", name, &arg1v);
+            let ret = l.global_funcall1(name, arg1v)?;
+            Ok(ret)
+        }
+        Rule::Nop => {
+            let ret = l.global_funcall1(name, Value::Nil)?;
+            Ok(ret)
+        }
+        _ => Err(l.error("Invalid rule")),
+    }
 }
 
 pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {

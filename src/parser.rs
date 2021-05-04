@@ -26,6 +26,7 @@ pub enum Rule {
     Prefixexp(Box<Rule>),               // (fc|var|exp)
     FunctionCall(Box<Rule>, Box<Rule>), // symbol, args
     Args(Box<Rule>),
+    Nop,
 }
 
 #[allow(dead_code)]
@@ -117,8 +118,8 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    let empty = Box::new(Rule::Nil);
-    between(token('('), token(')'), exp().or(value(empty))).map(|exp| Box::new(Rule::Args(exp)))
+    let nop = Box::new(Rule::Nop);
+    between(token('('), token(')'), exp().or(value(nop))).map(|exp| Box::new(Rule::Args(exp)))
 }
 
 pub fn functioncall<Input>() -> impl Parser<Input, Output = Box<Rule>>
