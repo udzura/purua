@@ -63,11 +63,15 @@ pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {
 
 pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<(), LuaError> {
     match stat {
-        Rule::Stat(kind, a, _b, _c, _d, _e) => {
+        Rule::Stat(kind, a, b, _c, _d, _e) => {
             match kind {
                 StatKind::Sep => { /* nop */ }
                 StatKind::VarAssign => {
-                    todo!("assign to global")
+                    let var = is_exact_rule1!(Rule::Var, a.as_ref().unwrap().as_ref())?;
+                    let name = is_exact_rule1!(Rule::Symbol, var.as_ref())?;
+                    let value = eval_exp(l, b.as_ref().unwrap())?;
+
+                    l.assign_global(name, value);
                 }
                 StatKind::FunctionCall => {
                     eval_funcall(l, a.as_ref().unwrap())?;

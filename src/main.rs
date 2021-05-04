@@ -96,7 +96,7 @@ fn do_main<'a>(text: &'a str) -> Result<(), Box<dyn std::error::Error + 'a>> {
     let pos = position::Stream::new(text);
     let res = parser.easy_parse(pos)?.0;
     let chunk = res.1;
-    println!("parsed: {:?}", &chunk);
+    debug!("parsed: {:?}", &chunk);
 
     eval::eval_chunk(&mut l, chunk.as_ref())?;
     l.assign_global("foo", Value::LuaString("buz".to_string()));
