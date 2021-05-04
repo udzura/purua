@@ -12,8 +12,8 @@ end
 println("Hello With LF")
 
 function getstr()
-   print("a")
-   return "Hello returned MyStr"
+   ret = "Hello returned MyStr"
+   return ret
 end
 
 println(getstr())
