@@ -1,3 +1,4 @@
+use crate::function::*;
 use crate::value::*;
 use std::collections::HashMap;
 
@@ -110,7 +111,9 @@ impl LuaState {
 
     pub fn register_global_fn(&mut self, name: impl Into<String>, func: LuaFn) {
         let name: String = name.into();
-        self.g.global.insert(name, Value::Function(func));
+        self.g
+            .global
+            .insert(name, Value::Function(LuaFunction::from_fn(func)));
     }
 
     pub fn global_funcall1(
@@ -135,7 +138,7 @@ impl LuaState {
             }
         };
 
-        let retnr = func.call((self,))?;
+        let retnr = func.do_call((self,))?;
         if oldtop + retnr as usize != self.reg.top {
             return Err(self.error(format!("func {} should be return {} values", name, retnr)));
         }

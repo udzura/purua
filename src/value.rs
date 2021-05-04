@@ -1,6 +1,6 @@
+use crate::function::LuaFunction;
 use crate::state::{LuaError, LuaState};
 use std::fmt;
-pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
 #[allow(dead_code)]
 pub enum Value {
@@ -8,7 +8,7 @@ pub enum Value {
     Bool(bool),
     Number(i64),
     LuaString(String),
-    Function(LuaFn),
+    Function(LuaFunction),
 }
 
 impl Value {
