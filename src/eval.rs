@@ -78,37 +78,42 @@ pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
     }
 }
 
-pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<(), LuaError> {
+pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<Value, LuaError> {
     match chunk {
         Rule::Chunk(stats) => {
+            let mut v = Value::Nil;
             for stat in stats.into_iter() {
-                eval_stat(l, stat.as_ref())?;
+                v = eval_stat(l, stat.as_ref())?;
             }
-            Ok(())
+            Ok(v) // last one...
         }
         _ => Err(l.error("Not a chunk")),
     }
 }
 
-pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<(), LuaError> {
+pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
     match stat {
         Rule::Stat(kind, a, b, _c, _d, _e) => {
-            match kind {
-                StatKind::Sep => { /* nop */ }
+            let v = match kind {
+                StatKind::Sep => Value::Nil,
                 StatKind::VarAssign => {
                     let var = is_exact_rule1!(Rule::Var, a.as_ref().unwrap().as_ref())?;
                     let name = is_exact_rule1!(Rule::Symbol, var.as_ref())?;
                     let value = eval_exp(l, b.as_ref().unwrap())?;
 
                     l.assign_global(name, value);
+                    Value::Nil
                 }
-                StatKind::FunctionCall => {
-                    eval_funcall(l, a.as_ref().unwrap())?;
-                }
+                StatKind::FunctionCall => eval_funcall(l, a.as_ref().unwrap())?,
                 _ => unimplemented!("Pull request is welcomed!"),
-            }
-            Ok(())
+            };
+            Ok(v)
         }
         _ => Err(l.error("Not a stat")),
     }
+}
+
+pub fn eval_block(l: &mut LuaState, block: &Rule) -> Result<Value, LuaError> {
+    let chunk = is_exact_rule1!(Rule::Block, block)?;
+    eval_chunk(l, chunk)
 }

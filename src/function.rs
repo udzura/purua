@@ -1,3 +1,4 @@
+use crate::eval::eval_block;
 use crate::parser::Rule;
 use crate::state::{LuaError, LuaState};
 pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
@@ -24,11 +25,27 @@ impl LuaFunction {
         }
     }
 
+    pub fn from_code(params: &Rule, block: &Rule) -> Self {
+        let proto = FunctionProto {
+            parameters_nr: 1,
+            code: Box::new(block.to_owned()),
+        };
+
+        LuaFunction {
+            is_global: true,
+            proto: Some(proto),
+            luafn: None,
+        }
+    }
+
     pub fn do_call(&self, args: (&mut LuaState,)) -> Result<i32, LuaError> {
         if let Some(luafn) = self.luafn {
             luafn.call(args)
         } else {
-            Err(args.0.error("Code defined func not ywe implemented"))
+            let l = args.0;
+            let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
+            l.returns(v);
+            Ok(1)
         }
     }
 }
