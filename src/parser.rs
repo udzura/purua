@@ -136,7 +136,7 @@ where
     let token = char('+')
         .or(char('-'))
         .skip(spaces())
-        .map(|tok| move |d1, d2| Box::new(Rule::BinOp(tok, d1, d2)));
+        .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
     chainl1(binop2(), token)
 }
 
@@ -148,7 +148,7 @@ where
     let token = char('*')
         .or(char('/'))
         .skip(spaces())
-        .map(|tok| move |d1, d2| Box::new(Rule::BinOp(tok, d1, d2)));
+        .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
     chainl1(exp_(), token)
 }
 
@@ -177,16 +177,7 @@ parser! {
         Input: Stream<Token = char>,
         Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     ] {
-        choice((
-            attempt(reserved("nil")),
-            attempt(reserved("true")),
-            attempt(reserved("false")),
-            attempt(binop1()),
-            numeral(),
-            literal_string(),
-            prefixexp(),
-        ))
-            .map(|e| Box::new(Rule::Exp(e)))
+        binop1()
     }
 }
 

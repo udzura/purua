@@ -33,9 +33,36 @@ pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
         Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
         Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
         Rule::Prefixexp(_) => eval_prefixexp(l, exp_),
+        Rule::BinOp(_, _, _) => eval_binop(l, exp_),
         _ => Err(LuaError {
-            message: format!("Unsupported rule: {:?}", exp_),
+            message: format!("Unsupported exp rule: {:?}", exp_),
         }),
+    }
+}
+
+pub fn eval_binop(l: &mut LuaState, binop: &Rule) -> Result<Value, LuaError> {
+    match binop {
+        Rule::BinOp(c, lhs, rhs) => {
+            let lhs = lhs.as_ref();
+            let lvalue = match lhs {
+                Rule::Exp(_) => eval_exp(l, lhs)?,
+                Rule::BinOp(_, _, _) => eval_binop(l, lhs)?,
+                _ => {
+                    return Err(l.error("lhs invalid"));
+                }
+            };
+            let rhs = rhs.as_ref();
+            let rvalue = match rhs {
+                Rule::Exp(_) => eval_exp(l, rhs)?,
+                Rule::BinOp(_, _, _) => eval_binop(l, rhs)?,
+                _ => {
+                    return Err(l.error("lhs invalid"));
+                }
+            };
+
+            l.process_op(c, lvalue, rvalue)
+        }
+        _ => Err(l.error("binop invalid")),
     }
 }
 

@@ -166,6 +166,33 @@ impl LuaState {
         Ok(vret)
     }
 
+    pub fn process_op(
+        &self,
+        op: &combine::lib::primitive::char,
+        lvalue: Value,
+        rvalue: Value,
+    ) -> Result<Value, LuaError> {
+        let l = if let Value::Number(n) = lvalue {
+            n.to_owned()
+        } else {
+            return Err(self.error("type error"));
+        };
+        let r = if let Value::Number(n) = rvalue {
+            n.to_owned()
+        } else {
+            return Err(self.error("type error"));
+        };
+
+        let ret = match op {
+            '+' => Value::Number(l + r),
+            '-' => Value::Number(l - r),
+            '*' => Value::Number(l * r),
+            '/' => Value::Number(l / r),
+            _ => return Err(self.error("unsupported op")),
+        };
+        Ok(ret)
+    }
+
     pub fn returns(&mut self, retval: Value) {
         self.reg.push(retval);
     }
