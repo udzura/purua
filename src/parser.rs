@@ -22,11 +22,14 @@ pub enum Rule {
         Option<Box<Rule>>,
     ),
     LastStat(Box<Rule>),
+    FuncName(Box<Rule>),
     Var(Box<Rule>),
     Exp(Box<Rule>),
     Prefixexp(Box<Rule>),               // (fc|var|exp)
     FunctionCall(Box<Rule>, Box<Rule>), // symbol, args
     Args(Box<Rule>),
+    FuncBody(Option<Box<Rule>>, Box<Rule>), // params, block
+    ParList1(Box<Rule>),                    // symbol(s)
     Nop,
 }
 
@@ -156,6 +159,36 @@ parser! {
     }
 }
 
+pub fn funcname<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    symbol().map(|name| Box::new(Rule::FuncName(name)))
+}
+
+pub fn funcbody<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (
+        between(token('('), token(')'), parlist1()).skip(spaces()),
+        block(),
+    )
+        .map(|(params, block)| Box::new(Rule::FuncBody(params, block)))
+}
+
+pub fn parlist1<Input>() -> impl Parser<Input, Output = Option<Box<Rule>>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    symbol()
+        .map(|name| Some(Box::new(Rule::ParList1(name))))
+        .or(value(None))
+}
+
 pub fn stat<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
@@ -163,8 +196,10 @@ where
 {
     choice((
         token(';').map(|_| Box::new(Rule::Stat(StatKind::Sep, None, None, None, None, None))),
-        attempt(reserved("break"))
-            .map(|_| Box::new(Rule::Stat(StatKind::Break, None, None, None, None, None))),
+        attempt(
+            reserved("break")
+                .map(|_| Box::new(Rule::Stat(StatKind::Break, None, None, None, None, None))),
+        ),
         attempt((reserved("do"), block(), reserved("end"))).map(|(_, blk, _)| {
             Box::new(Rule::Stat(StatKind::Do, blk.into(), None, None, None, None))
         }),
@@ -188,6 +223,24 @@ where
                 None,
             ))
         }),
+        attempt(
+            (
+                reserved("function"),
+                funcname(),
+                funcbody(),
+                reserved("end"),
+            )
+                .map(|(_, name, body, _)| {
+                    Box::new(Rule::Stat(
+                        StatKind::DeclareFunction,
+                        name.into(),
+                        body.into(),
+                        None,
+                        None,
+                        None,
+                    ))
+                }),
+        ),
     ))
 }
 
