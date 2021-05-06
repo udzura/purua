@@ -22,6 +22,7 @@ pub enum Rule {
         Option<Box<Rule>>,
     ),
     LastStat(Box<Rule>),
+    IfStat(Vec<Box<Rule>>, Vec<Box<Rule>>),
     FuncName(Box<Rule>),
     Var(Box<Rule>),
     Exp(Box<Rule>),
@@ -233,6 +234,60 @@ where
 {
     choice((
         token(';').map(|_| Box::new(Rule::Stat(StatKind::Sep, None, None, None, None, None))),
+        attempt(
+            (
+                reserved("if"),
+                exp(),
+                reserved("then"),
+                block().skip(spaces()),
+                many(
+                    (
+                        attempt(reserved("elseif")),
+                        exp(),
+                        reserved("then"),
+                        block(),
+                    )
+                        .map(|(_, exp, _, blk)| (exp, blk)),
+                )
+                .or(value(vec![]))
+                .skip(spaces()),
+                (attempt(reserved("else")), block())
+                    .or(value((Box::new(Rule::Nop), Box::new(Rule::Nop))))
+                    .skip(spaces()),
+                reserved("end"),
+            )
+                .map(
+                    |(_, ifexp, _, thenblk, elifpairs, elsepair, _): (
+                        _,
+                        _,
+                        _,
+                        _,
+                        Vec<(Box<Rule>, Box<Rule>)>,
+                        (Box<Rule>, Box<Rule>),
+                        _,
+                    )| {
+                        let mut vec0 = vec![ifexp];
+                        let mut vec1 = vec![thenblk];
+                        for (exp, blk) in elifpairs.into_iter() {
+                            vec0.push(exp);
+                            vec1.push(blk);
+                        }
+                        if let Rule::Block(_) = elsepair.1.as_ref() {
+                            vec0.push(Box::new(Rule::Nop));
+                            vec1.push(elsepair.1);
+                        };
+                        let ifst = Rule::IfStat(vec0, vec1);
+                        Box::new(Rule::Stat(
+                            StatKind::IfThen,
+                            Box::new(ifst).into(),
+                            None,
+                            None,
+                            None,
+                            None,
+                        ))
+                    },
+                ),
+        ),
         attempt(
             reserved("break")
                 .map(|_| Box::new(Rule::Stat(StatKind::Break, None, None, None, None, None))),
