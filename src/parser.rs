@@ -346,6 +346,25 @@ where
         attempt((reserved("do"), block(), reserved("end"))).map(|(_, blk, _)| {
             Box::new(Rule::Stat(StatKind::Do, blk.into(), None, None, None, None))
         }),
+        attempt(
+            (
+                reserved("local"),
+                symbol(),
+                (token('=').skip(spaces()), exp())
+                    .map(|(_, e)| e)
+                    .or(value(Box::new(Rule::Nil))),
+            )
+                .map(|(_, name, val)| {
+                    Box::new(Rule::Stat(
+                        StatKind::LocalVar,
+                        name.into(),
+                        val.into(),
+                        None,
+                        None,
+                        None,
+                    ))
+                }),
+        ),
         attempt((var(), token('=').skip(spaces()), exp())).map(|(v, _, e)| {
             Box::new(Rule::Stat(
                 StatKind::VarAssign,
