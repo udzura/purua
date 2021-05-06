@@ -178,7 +178,7 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                     l.register_global_code(name, params, block);
                     Value::Nil
                 }
-                _ => unimplemented!("Pull request is welcomed!"),
+                _ => unimplemented!("{:?}: Pull request is welcomed!", kind),
             };
             Ok(v)
         }
