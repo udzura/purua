@@ -1,6 +1,3 @@
-#![feature(unboxed_closures)]
-#![feature(fn_traits)]
-
 extern crate combine;
 extern crate purua;
 

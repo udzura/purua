@@ -40,7 +40,8 @@ impl LuaFunction {
 
     pub fn do_call(&self, args: (&mut LuaState,)) -> Result<i32, LuaError> {
         if let Some(luafn) = self.luafn {
-            luafn.call(args)
+            // Use fn_traits in the future
+            luafn(args.0)
         } else {
             let l = args.0;
             let mut i: usize = 0;
