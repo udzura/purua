@@ -1,8 +1,9 @@
+use log::*;
 use std::collections::HashMap;
 
-use crate::eval::eval_block;
 use crate::parser::Rule;
 use crate::state::{LuaError, LuaState};
+use crate::{eval::eval_block, value::Value};
 pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
 #[derive(Clone)]
@@ -14,6 +15,7 @@ pub struct FunctionProto {
 #[derive(Clone)]
 pub struct CallFrame {
     pub env: HashMap<String, usize>,
+    pub to_return: bool,
     pub args_nr: usize,
     pub ret_nr: usize,
 }
@@ -56,6 +58,7 @@ impl LuaFunction {
                 args_nr: 0,
                 ret_nr: 1,
                 env: Default::default(),
+                to_return: false,
             };
 
             let l = args.0;
@@ -71,9 +74,7 @@ impl LuaFunction {
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
 
-            //while oldtop < l.reg.top {
             l.frame_stack.pop();
-            //}
 
             l.returns(v);
             Ok(1)

@@ -140,8 +140,9 @@ impl LuaState {
         arg1: Value,
     ) -> Result<Value, LuaError> {
         let name: String = name.into();
-        self.reg.push(arg1);
         let oldtop = self.reg.top;
+        let params_n = 1;
+        self.reg.push(arg1);
         let func = {
             let g = &self.g;
             let val = g
@@ -157,7 +158,7 @@ impl LuaState {
         };
 
         let retnr = func.do_call((self,))?;
-        if oldtop + retnr as usize != self.reg.top {
+        if oldtop + params_n + retnr as usize != self.reg.top {
             return Err(self.error(format!("func {} should be return {} values", name, retnr)));
         }
 
@@ -167,7 +168,9 @@ impl LuaState {
         } else {
             Value::Nil
         };
-        let _ = self.reg.ensure_pop()?; // remove arg from stack - 1 time
+        while oldtop < self.reg.top {
+            let _ = self.reg.ensure_pop()?; // remove arg from stack - 1 time
+        }
 
         Ok(vret)
     }
@@ -255,6 +258,18 @@ impl LuaState {
             Value::Function(f) => Value::Function(f.clone()),
         }
         .into()
+    }
+
+    pub fn set_to_return(&mut self, to_return: bool) {
+        let mut f = self.frame_stack.last_mut().unwrap();
+        f.to_return = to_return;
+    }
+
+    pub fn to_return(&mut self) -> bool {
+        match self.current_frame() {
+            Some(f) => f.to_return,
+            None => false,
+        }
     }
 
     pub fn returns(&mut self, retval: Value) {

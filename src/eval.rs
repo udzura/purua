@@ -177,11 +177,17 @@ pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<Value, LuaError> {
     match chunk {
         Rule::Chunk(stats, last) => {
             for stat in stats.into_iter() {
-                eval_stat(l, stat.as_ref())?;
+                let ret = eval_stat(l, stat.as_ref())?;
+                if l.to_return() {
+                    return Ok(ret);
+                }
             }
             if let Some(stat) = last {
                 let exp = is_exact_rule1!(Rule::LastStat, stat.as_ref())?;
                 let ret = eval_exp(l, exp.as_ref())?;
+                if let Some(_) = l.current_frame() {
+                    l.set_to_return(true);
+                }
                 Ok(ret)
             } else {
                 Ok(Value::Nil)
