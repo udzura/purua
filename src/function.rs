@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
+use crate::eval::eval_block;
 use crate::parser::Rule;
 use crate::state::{LuaError, LuaState};
-use crate::{eval::eval_block, value::Value};
 pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
 #[derive(Clone)]
@@ -52,20 +52,20 @@ impl LuaFunction {
             // Use fn_traits in the future
             luafn(args.0)
         } else {
+            let mut frame = CallFrame {
+                args_nr: 0,
+                ret_nr: 1,
+                env: Default::default(),
+            };
+
             let l = args.0;
             let mut i: usize = 0;
             for name in self.proto.as_ref().unwrap().parameters.iter() {
                 i += 1;
                 let idx = l.reg.top - i;
-                let value = l.reg.array[idx].clone();
-                l.assign_global(name, value);
+                frame.env.insert(name.to_string(), idx);
             }
-            let frame = CallFrame {
-                args_nr: i,
-                ret_nr: 1,
-                env: Default::default(),
-            };
-
+            frame.args_nr = i;
             l.frame_stack.push(frame);
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
@@ -73,11 +73,6 @@ impl LuaFunction {
             l.frame_stack.pop();
 
             l.returns(v);
-
-            for name in self.proto.as_ref().unwrap().parameters.iter() {
-                l.assign_global(name, Value::Nil);
-            }
-
             Ok(1)
         }
     }

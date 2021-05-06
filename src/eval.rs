@@ -70,7 +70,9 @@ pub fn eval_get_var(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
     let var = is_exact_rule1!(Rule::Var, exp)?;
     let name = is_exact_rule1!(Rule::Symbol, var.as_ref())?;
 
-    l.get_global(name).ok_or(l.error("Variable not found"))
+    l.get_local(name)
+        .or(l.get_global(name))
+        .ok_or(l.error("Variable not found"))
 }
 
 pub fn eval_prefixexp(l: &mut LuaState, pexp: &Rule) -> Result<Value, LuaError> {

@@ -203,6 +203,19 @@ impl LuaState {
         self.frame_stack.last()
     }
 
+    pub fn get_local(&self, name: impl Into<String>) -> Option<Value> {
+        let name: String = name.into();
+        let idx = self.current_frame()?.env.get(&name)?.to_owned();
+        match &self.reg.array[idx] {
+            Value::Nil => Value::Nil,
+            Value::Bool(b) => Value::Bool(b.to_owned()),
+            Value::Number(n) => Value::Number(n.to_owned()),
+            Value::LuaString(s) => Value::LuaString(s.clone()),
+            Value::Function(f) => Value::Function(f.clone()),
+        }
+        .into()
+    }
+
     pub fn returns(&mut self, retval: Value) {
         self.reg.push(retval);
     }

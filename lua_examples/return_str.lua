@@ -1,5 +1,5 @@
 function mystr()
-   return "str"
+   return "str\n"
 end
 
 print(mystr())
