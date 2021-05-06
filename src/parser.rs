@@ -134,14 +134,47 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    let token = char('+')
-        .or(char('-'))
-        .skip(spaces())
-        .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
+    let token = choice((
+        attempt(string("and").map(|_| '&')),
+        attempt(string("or").map(|_| '|')),
+    ))
+    .skip(spaces())
+    .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
     chainl1(binop2(), token)
 }
 
 pub fn binop2<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    let token = choice((
+        attempt(string("<=").map(|_| 'g')),
+        attempt(string(">=").map(|_| 'l')),
+        char('<'),
+        char('>'),
+        char('-'),
+        attempt(string("==").map(|_| 'e')),
+        attempt(string("~=").map(|_| 'n')),
+    ))
+    .skip(spaces())
+    .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
+    chainl1(binop3(), token)
+}
+
+pub fn binop3<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    let token = char('+')
+        .or(char('-'))
+        .skip(spaces())
+        .map(|tok| move |d1, d2| Box::new(Rule::Exp(Box::new(Rule::BinOp(tok, d1, d2)))));
+    chainl1(binop4(), token)
+}
+
+pub fn binop4<Input>() -> impl Parser<Input, Output = Box<Rule>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
