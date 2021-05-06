@@ -8,6 +8,7 @@ use combine::*;
 pub enum Rule {
     Nil,
     Reserved(&'static str),
+    Bool(bool),
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
@@ -63,6 +64,24 @@ where
     string(word)
         .skip(spaces())
         .map(|s| Box::new(Rule::Reserved(s)))
+}
+
+pub fn nil<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    reserved("nil").map(|_| Box::new(Rule::Nil))
+}
+
+pub fn boolean<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    reserved("true")
+        .map(|_| Box::new(Rule::Bool(true)))
+        .or(reserved("false").map(|_| Box::new(Rule::Bool(false))))
 }
 
 pub fn numeral<Input>() -> impl Parser<Input, Output = Box<Rule>>
@@ -194,9 +213,8 @@ parser! {
         Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
     ] {
         choice((
-            attempt(reserved("nil")),
-            attempt(reserved("true")),
-            attempt(reserved("false")),
+            attempt(nil()),
+            attempt(boolean()),
             numeral(),
             literal_string(),
             prefixexp(),
