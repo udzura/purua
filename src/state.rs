@@ -178,22 +178,31 @@ impl LuaState {
         lvalue: Value,
         rvalue: Value,
     ) -> Result<Value, LuaError> {
-        let l = if let Value::Number(n) = lvalue {
-            n.to_owned()
-        } else {
-            return Err(self.error("type error"));
-        };
-        let r = if let Value::Number(n) = rvalue {
-            n.to_owned()
-        } else {
-            return Err(self.error("type error"));
-        };
+        match (lvalue, rvalue) {
+            (Value::Number(n), Value::Number(m)) => {
+                self.process_op_number(op, n.to_owned(), m.to_owned())
+            }
+            _ => Err(self.error("type error")),
+        }
+    }
 
+    pub fn process_op_number(
+        &self,
+        op: &combine::lib::primitive::char,
+        l: i64,
+        r: i64,
+    ) -> Result<Value, LuaError> {
         let ret = match op {
             '+' => Value::Number(l + r),
             '-' => Value::Number(l - r),
             '*' => Value::Number(l * r),
             '/' => Value::Number(l / r),
+            'l' => Value::Bool(l <= r),
+            '<' => Value::Bool(l < r),
+            'g' => Value::Bool(l >= r),
+            '>' => Value::Bool(l > r),
+            'e' => Value::Bool(l == r),
+            'n' => Value::Bool(l != r),
             _ => return Err(self.error("unsupported op")),
         };
         Ok(ret)

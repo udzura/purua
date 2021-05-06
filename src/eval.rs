@@ -30,6 +30,8 @@ pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
     let exp_: &Box<Rule> = is_exact_rule1!(Rule::Exp, exp)?;
     let exp_ = exp_.as_ref();
     match exp_ {
+        Rule::Nil => return Ok(Value::Nil),
+        Rule::Bool(b) => return Ok(Value::Bool(b.to_owned())),
         Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
         Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
         Rule::Prefixexp(_) => eval_prefixexp(l, exp_),
