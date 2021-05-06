@@ -67,6 +67,7 @@ impl Registry {
 pub struct LuaState {
     pub g: Global,
     pub reg: Registry,
+    pub frame_stack: Vec<CallFrame>,
 }
 
 impl LuaState {
@@ -78,8 +79,13 @@ impl LuaState {
             top: 0,
             max_size: reg_size,
         };
+        let frame_stack = Vec::new();
 
-        Self { g, reg }
+        Self {
+            g,
+            reg,
+            frame_stack,
+        }
     }
 
     pub fn arg_int(&self, pos: usize) -> Result<i64, LuaError> {
@@ -191,6 +197,10 @@ impl LuaState {
             _ => return Err(self.error("unsupported op")),
         };
         Ok(ret)
+    }
+
+    pub fn current_frame(&self) -> Option<&CallFrame> {
+        self.frame_stack.last()
     }
 
     pub fn returns(&mut self, retval: Value) {

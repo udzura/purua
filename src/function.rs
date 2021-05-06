@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::parser::Rule;
 use crate::state::{LuaError, LuaState};
 use crate::{eval::eval_block, value::Value};
@@ -7,6 +9,13 @@ pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 pub struct FunctionProto {
     pub parameters: Vec<String>,
     pub code: Box<Rule>,
+}
+
+#[derive(Clone)]
+pub struct CallFrame {
+    pub env: HashMap<String, usize>,
+    pub args_nr: usize,
+    pub ret_nr: usize,
 }
 
 #[derive(Clone)]
@@ -51,8 +60,18 @@ impl LuaFunction {
                 let value = l.reg.array[idx].clone();
                 l.assign_global(name, value);
             }
+            let frame = CallFrame {
+                args_nr: i,
+                ret_nr: 1,
+                env: Default::default(),
+            };
+
+            l.frame_stack.push(frame);
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
+
+            l.frame_stack.pop();
+
             l.returns(v);
 
             for name in self.proto.as_ref().unwrap().parameters.iter() {
