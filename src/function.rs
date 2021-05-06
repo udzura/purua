@@ -59,6 +59,7 @@ impl LuaFunction {
             };
 
             let l = args.0;
+            let oldtop = l.reg.top;
             let mut i: usize = 0;
             for name in self.proto.as_ref().unwrap().parameters.iter() {
                 i += 1;
@@ -70,7 +71,9 @@ impl LuaFunction {
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
 
-            l.frame_stack.pop();
+            while oldtop < l.reg.top {
+                l.frame_stack.pop();
+            }
 
             l.returns(v);
             Ok(1)
