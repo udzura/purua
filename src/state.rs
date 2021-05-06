@@ -182,6 +182,10 @@ impl LuaState {
             (Value::Number(n), Value::Number(m)) => {
                 self.process_op_number(op, n.to_owned(), m.to_owned())
             }
+            (Value::Bool(n), Value::Bool(m)) => {
+                self.process_op_bool(op, n.to_owned(), m.to_owned())
+            }
+            (Value::LuaString(n), Value::LuaString(m)) => self.process_op_str(op, &n, &m),
             _ => Err(self.error("type error")),
         }
     }
@@ -201,6 +205,34 @@ impl LuaState {
             '<' => Value::Bool(l < r),
             'g' => Value::Bool(l >= r),
             '>' => Value::Bool(l > r),
+            'e' => Value::Bool(l == r),
+            'n' => Value::Bool(l != r),
+            _ => return Err(self.error("unsupported op")),
+        };
+        Ok(ret)
+    }
+
+    pub fn process_op_bool(
+        &self,
+        op: &combine::lib::primitive::char,
+        l: bool,
+        r: bool,
+    ) -> Result<Value, LuaError> {
+        let ret = match op {
+            '&' => Value::Bool(l && r),
+            '|' => Value::Bool(l || r),
+            _ => return Err(self.error("unsupported op")),
+        };
+        Ok(ret)
+    }
+
+    pub fn process_op_str(
+        &self,
+        op: &combine::lib::primitive::char,
+        l: &str,
+        r: &str,
+    ) -> Result<Value, LuaError> {
+        let ret = match op {
             'e' => Value::Bool(l == r),
             'n' => Value::Bool(l != r),
             _ => return Err(self.error("unsupported op")),
