@@ -71,9 +71,9 @@ impl LuaFunction {
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
 
-            while oldtop < l.reg.top {
-                l.frame_stack.pop();
-            }
+            //while oldtop < l.reg.top {
+            l.frame_stack.pop();
+            //}
 
             l.returns(v);
             Ok(1)

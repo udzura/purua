@@ -109,6 +109,40 @@ pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
     }
 }
 
+pub fn eval_ifthen(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
+    let (exps, blocks) = is_exact_rule2!(Rule::IfStat, stat)?;
+    let mut i = 0;
+    for exp in exps.iter() {
+        i += 1;
+        let exp = exp.as_ref();
+        match exp {
+            Rule::Exp(_) => {
+                let v = eval_exp(l, exp)?;
+                match v {
+                    Value::Nil => {
+                        continue;
+                    }
+                    Value::Bool(b) => {
+                        if b {
+                            return eval_block(l, &blocks[i - 1]);
+                        } else {
+                            continue;
+                        }
+                    }
+                    _ => {
+                        return eval_block(l, &blocks[i - 1]);
+                    }
+                }
+            }
+            Rule::Nop => {
+                return eval_block(l, &blocks[i - 1]);
+            }
+            _ => return Err(l.error("Invalid rule")),
+        }
+    }
+    Ok(Value::Nil)
+}
+
 pub fn process_funcname(_l: &mut LuaState, fname: &Rule) -> Result<String, LuaError> {
     let name = is_exact_rule1!(Rule::FuncName, fname)?;
     let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
@@ -178,6 +212,7 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                     l.register_global_code(name, params, block);
                     Value::Nil
                 }
+                StatKind::IfThen => eval_ifthen(l, a.as_ref().unwrap())?,
                 _ => unimplemented!("{:?}: Pull request is welcomed!", kind),
             };
             Ok(v)
