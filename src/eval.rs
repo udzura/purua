@@ -207,7 +207,11 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                     let name = is_exact_rule1!(Rule::Symbol, var.as_ref())?;
                     let value = eval_exp(l, b.as_ref().unwrap())?;
 
-                    l.assign_global(name, value);
+                    if l.has_local_name(name) {
+                        l.assign_local(name, value);
+                    } else {
+                        l.assign_global(name, value);
+                    }
                     Value::Nil
                 }
                 StatKind::FunctionCall => eval_funcall(l, a.as_ref().unwrap())?,
@@ -219,6 +223,22 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                     Value::Nil
                 }
                 StatKind::IfThen => eval_ifthen(l, a.as_ref().unwrap())?,
+                StatKind::LocalVar => {
+                    let name = is_exact_rule1!(Rule::Symbol, a.as_ref().unwrap().as_ref())?;
+                    let exp = b.as_ref().unwrap().as_ref();
+                    let value = match exp {
+                        Rule::Exp(_) => eval_exp(l, exp)?,
+                        _ => {
+                            return Err(l.error("Expected exp"));
+                        }
+                    };
+                    if l.current_frame().is_some() {
+                        l.assign_local(name, value);
+                    } else {
+                        return Err(l.error("Expected in function def"));
+                    }
+                    Value::Nil
+                }
                 _ => unimplemented!("{:?}: Pull request is welcomed!", kind),
             };
             Ok(v)

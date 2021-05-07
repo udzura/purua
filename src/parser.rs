@@ -352,7 +352,7 @@ where
                 symbol(),
                 (token('=').skip(spaces()), exp())
                     .map(|(_, e)| e)
-                    .or(value(Box::new(Rule::Nil))),
+                    .or(value(Box::new(Rule::Exp(Box::new(Rule::Nil))))),
             )
                 .map(|(_, name, val)| {
                     Box::new(Rule::Stat(

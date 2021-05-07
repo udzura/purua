@@ -104,6 +104,14 @@ impl LuaState {
         self.g.global.insert(name, value);
     }
 
+    pub fn assign_local(&mut self, name: impl Into<String>, value: Value) {
+        if let Some(_) = self.current_frame() {
+            let name: String = name.into();
+            let idx = self.reg.push(value) - 1;
+            self.frame_stack.last_mut().unwrap().env.insert(name, idx);
+        }
+    }
+
     pub fn get_global(&self, name: impl Into<String>) -> Option<Value> {
         let name: String = name.into();
         self.g.global.get(&name).map(|v| match v {
@@ -158,9 +166,9 @@ impl LuaState {
         };
 
         let retnr = func.do_call((self,))?;
-        if oldtop + params_n + retnr as usize != self.reg.top {
-            return Err(self.error(format!("func {} should be return {} values", name, retnr)));
-        }
+        // if oldtop + params_n + retnr as usize != self.reg.top {
+        //     return Err(self.error(format!("func {} should be return {} values", name, retnr)));
+        // }
 
         // TODO: multireturn
         let vret = if retnr == 1 {
@@ -245,6 +253,12 @@ impl LuaState {
 
     pub fn current_frame(&self) -> Option<&CallFrame> {
         self.frame_stack.last()
+    }
+
+    pub fn has_local_name(&self, name: impl Into<String>) -> bool {
+        let name: String = name.into();
+        self.current_frame()
+            .map_or(false, |f| f.env.contains_key(&name))
     }
 
     pub fn get_local(&self, name: impl Into<String>) -> Option<Value> {
