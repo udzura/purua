@@ -32,6 +32,9 @@ pub enum Rule {
     Args(Box<Rule>),
     FuncBody(Option<Box<Rule>>, Box<Rule>), // params, block
     ParList1(Box<Rule>),                    // symbol(s)
+    TableConst(Box<Rule>),
+    FieldList(Vec<Box<Rule>>), // vec<field>
+    Field(Box<Rule>, Box<Rule>),
     BinOp(char, Box<Rule>, Box<Rule>),
     Nop,
 }
@@ -54,6 +57,10 @@ pub enum StatKind {
     DeclareFunction,
     LocalFunction,
     LocalVar,
+}
+
+pub fn nop() -> Box<Rule> {
+    Box::new(Rule::Nop)
 }
 
 pub fn reserved<Input>(word: &'static str) -> impl Parser<Input, Output = Box<Rule>>
@@ -218,6 +225,7 @@ parser! {
             numeral(),
             literal_string(),
             prefixexp(),
+            tableconstructor(),
         ))
             .map(|e| Box::new(Rule::Exp(e)))
     }
@@ -276,6 +284,63 @@ where
     symbol()
         .map(|name| Some(Box::new(Rule::ParList1(name))))
         .or(value(None))
+}
+
+pub fn tableconstructor<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    between(
+        token('{').skip(spaces()),
+        token('}'),
+        fieldlist().skip(spaces()),
+    )
+    .skip(spaces())
+    .map(|l| Box::new(Rule::TableConst(l)))
+}
+
+pub fn fieldlist<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (
+        field(),
+        many((fieldsep(), field())),
+        fieldsep().or(value(())),
+    )
+        .map(|(head, tail, _): (Box<Rule>, Vec<((), Box<Rule>)>, _)| {
+            let mut v = vec![head];
+            v.extend(tail.into_iter().map(|(_, r)| r).collect::<Vec<Box<Rule>>>());
+            Box::new(Rule::FieldList(v))
+        })
+}
+
+pub fn field<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    choice((
+        (
+            between(token('['), token(']'), exp()),
+            token('=').skip(spaces()),
+            exp(),
+        )
+            .map(|(e1, _, e2)| Box::new(Rule::Field(e1, e2))),
+        (symbol(), token('=').skip(spaces()), exp())
+            .map(|(e1, _, e2)| Box::new(Rule::Field(e1, e2))),
+        exp().map(|e1| Box::new(Rule::Field(Box::new(Rule::Nop), e1))),
+    ))
+}
+
+pub fn fieldsep<Input>() -> impl Parser<Input, Output = ()>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    token(',').or(token(';')).skip(spaces()).map(|_| ())
 }
 
 pub fn stat<Input>() -> impl Parser<Input, Output = Box<Rule>>
