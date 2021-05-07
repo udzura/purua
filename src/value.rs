@@ -1,3 +1,4 @@
+use crate::state::{LuaError, LuaResult};
 use crate::{function::LuaFunction, table::LuaTable};
 
 use std::{fmt, rc::Rc};
@@ -13,9 +14,20 @@ pub enum Value {
     Function(LuaFunction),
 }
 
+macro_rules! assert_is_table {
+    ($y:expr) => {
+        match $y {
+            Value::Table(rc) => Ok(rc),
+            _ => Err(LuaError {
+                message: format!("Asert this is a table: {:?}", $y),
+            }),
+        }
+    };
+}
+
 impl Value {
     pub fn newtable() -> Self {
-        let refc = Rc::new(LuaTable::default());
+        let refc = Rc::new(LuaTable::empty());
         Value::Table(refc)
     }
 
@@ -32,6 +44,11 @@ impl Value {
             Value::Number(n) => Some(n.to_string()),
             _ => None,
         }
+    }
+
+    pub fn ensure_table(&self) -> LuaResult<Rc<LuaTable>> {
+        let rc = assert_is_table!(self)?;
+        Ok(Rc::clone(rc))
     }
 }
 

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub struct LuaError {
     pub message: String,
 }
+pub type LuaResult<T> = Result<T, LuaError>;
 
 impl std::fmt::Display for LuaError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
