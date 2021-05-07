@@ -114,13 +114,7 @@ impl LuaState {
 
     pub fn get_global(&self, name: impl Into<String>) -> Option<Value> {
         let name: String = name.into();
-        self.g.global.get(&name).map(|v| match v {
-            Value::Nil => Value::Nil,
-            Value::Bool(b) => Value::Bool(b.to_owned()),
-            Value::Number(n) => Value::Number(n.to_owned()),
-            Value::LuaString(s) => Value::LuaString(s.clone()),
-            Value::Function(f) => Value::Function(f.clone()),
-        })
+        self.g.global.get(&name).map(|v| v.clone())
     }
 
     pub fn register_global_fn(&mut self, name: impl Into<String>, func: LuaFn) {
@@ -264,14 +258,7 @@ impl LuaState {
     pub fn get_local(&self, name: impl Into<String>) -> Option<Value> {
         let name: String = name.into();
         let idx = self.current_frame()?.env.get(&name)?.to_owned();
-        match &self.reg.array[idx] {
-            Value::Nil => Value::Nil,
-            Value::Bool(b) => Value::Bool(b.to_owned()),
-            Value::Number(n) => Value::Number(n.to_owned()),
-            Value::LuaString(s) => Value::LuaString(s.clone()),
-            Value::Function(f) => Value::Function(f.clone()),
-        }
-        .into()
+        (&self.reg.array[idx]).clone().into()
     }
 
     pub fn set_to_return(&mut self, to_return: bool) {

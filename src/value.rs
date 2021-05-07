@@ -1,5 +1,6 @@
-use crate::function::LuaFunction;
-use std::fmt;
+use crate::{function::LuaFunction, table::LuaTable};
+
+use std::{fmt, rc::Rc};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -8,10 +9,16 @@ pub enum Value {
     Bool(bool),
     Number(i64),
     LuaString(String),
+    Table(Rc<LuaTable>),
     Function(LuaFunction),
 }
 
 impl Value {
+    pub fn newtable() -> Self {
+        let refc = Rc::new(LuaTable::default());
+        Value::Table(refc)
+    }
+
     pub fn to_int(&self) -> Option<i64> {
         match self {
             Value::Number(n) => Some(*n),
@@ -35,6 +42,7 @@ impl fmt::Debug for Value {
             Value::Bool(b) => f.debug_tuple("Value::Bool").field(b).finish(),
             Value::Number(n) => f.debug_tuple("Value::Number").field(n).finish(),
             Value::LuaString(s) => f.debug_tuple("Value::LuaString").field(s).finish(),
+            Value::Table(t) => f.debug_tuple("Value::LuaTable").field(t.as_ref()).finish(),
             Value::Function(_) => f.write_str("Value::Function(LuaFn)"),
         }
     }
