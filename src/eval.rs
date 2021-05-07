@@ -35,6 +35,7 @@ pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
         Rule::Numeral(n) => return Ok(Value::Number(n.to_owned() as i64)),
         Rule::LiteralString(s) => return Ok(Value::LuaString(s.to_string())),
         Rule::Prefixexp(_) => eval_prefixexp(l, exp_),
+        Rule::TableConst(_) => eval_tableconst(l, exp_),
         Rule::BinOp(_, _, _) => eval_binop(l, exp_),
         _ => Err(LuaError {
             message: format!("Unsupported exp rule: {:?}", exp_),
@@ -88,6 +89,34 @@ pub fn eval_prefixexp(l: &mut LuaState, pexp: &Rule) -> Result<Value, LuaError> 
             message: format!("Unsupported rule: {:?}", value),
         }),
     }
+}
+
+pub fn eval_tableconst(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
+    let list: &Box<Rule> = is_exact_rule1!(Rule::TableConst, exp)?;
+    let list: &Vec<Box<Rule>> = is_exact_rule1!(Rule::FieldList, list.as_ref())?;
+
+    let v = Value::newtable();
+    let t = v.ensure_table()?;
+
+    for field in list.iter() {
+        let (key, value) = is_exact_rule2!(Rule::Field, field.as_ref())?;
+        match key.as_ref() {
+            Rule::Symbol(n) => {
+                unimplemented!("TODO: table");
+            }
+            Rule::Nop => {
+                let mut t = t.vec.borrow_mut();
+                t.push(eval_exp(l, value.as_ref())?);
+            }
+            _ => {
+                return Err(LuaError {
+                    message: format!("Unsupported rule for field key: {:?}", value),
+                });
+            }
+        }
+    }
+
+    Ok(v)
 }
 
 pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
