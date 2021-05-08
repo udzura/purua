@@ -7,5 +7,5 @@ function dofib(n)
    print("Unreachable!\n")
 end
 
-print(dofib(20))
+print(dofib(25))
 print("\n")
