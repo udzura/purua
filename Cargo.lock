@@ -216,6 +216,7 @@ dependencies = [
 name = "purua"
 version = "0.0.1"
 dependencies = [
+ "atty",
  "combine",
  "combine-language",
  "env_logger",

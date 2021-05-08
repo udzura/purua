@@ -1,4 +1,7 @@
+extern crate atty;
 extern crate combine;
+extern crate structopt;
+
 extern crate purua;
 
 use std::fs::File;
@@ -15,10 +18,12 @@ use structopt::StructOpt;
 use purua::state::LuaState;
 
 #[derive(StructOpt)]
-#[structopt(author, about)]
+#[structopt(about)]
 struct Command {
+    /// Lua script file to run
     #[structopt(name = "file")]
     file: Option<String>,
+    /// Lua script snippet to eval
     #[structopt(short = "e")]
     eval: Option<String>,
 }
@@ -34,8 +39,14 @@ fn main() {
     } else if let Some(file) = args.file {
         let f = File::open(file).expect("Cannot open file");
         do_main(f)
-    } else {
+    } else if atty::isnt(atty::Stream::Stdin) {
         do_main(io::stdin())
+    } else {
+        Command::clap()
+            .write_help(&mut io::stdout())
+            .expect("somewhat failed to show help");
+        println!("");
+        std::process::exit(1);
     };
 
     match ret {
