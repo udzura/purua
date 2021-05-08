@@ -2,6 +2,11 @@
 name = "purua"
 version = "0.0.1"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
+repository = "https://github.com/udzura/purua"
+keywords = ["lua", "embedded"]
+license-file = "LICENSE"
+readme = "README.md"
+description = "PU-RU-A is a PUre RUst luA implementation (to be)."
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
