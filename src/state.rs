@@ -137,6 +137,54 @@ impl LuaState {
             .insert(name, Value::Function(LuaFunction::from_code(params, block)));
     }
 
+    pub fn start_block_raw(&mut self) -> usize {
+        let oldtop = self.reg.top;
+        let mut frame = CallFrame {
+            args_nr: 0,
+            ret_nr: 0,
+            env: Default::default(),
+            to_return: false,
+        };
+        self.frame_stack.push(frame);
+        oldtop
+    }
+
+    pub fn end_block_raw(&mut self, oldtop: usize) -> LuaResult<()> {
+        self.frame_stack.pop();
+
+        while oldtop < self.reg.top {
+            let _ = self.reg.ensure_pop()?;
+        }
+        Ok(())
+    }
+
+    pub fn funcall(&mut self, func: Value, params: Vec<Value>) -> LuaResult<Vec<Value>> {
+        let oldtop = self.reg.top;
+        let params_n = params.len();
+        for arg in params.into_iter() {
+            self.reg.push(arg);
+        }
+
+        let func = if let Value::Function(func) = func {
+            func.clone()
+        } else {
+            return Err(self.error(format!("Specified value is not func {:?}", func)));
+        };
+        let retnr = func.do_call((self,))?;
+
+        let mut ret = Vec::with_capacity(params_n);
+        for i in 0..retnr {
+            let i = i as usize;
+            ret.insert(params_n - 1 - i, self.reg.ensure_pop()?);
+        }
+
+        while oldtop < self.reg.top {
+            let _ = self.reg.ensure_pop()?; // remove arg from stack - 1 time
+        }
+
+        Ok(ret)
+    }
+
     pub fn global_funcall1(
         &mut self,
         name: impl Into<String>,

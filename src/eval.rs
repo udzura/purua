@@ -138,6 +138,29 @@ pub fn eval_funcall(l: &mut LuaState, fc: &Rule) -> Result<Value, LuaError> {
     }
 }
 
+pub fn eval_funcall_multi(l: &mut LuaState, fc: &Rule) -> Result<Vec<Value>, LuaError> {
+    let (name, args) = is_exact_rule2!(Rule::FunctionCall, fc)?;
+    let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
+    let exp = is_exact_rule1!(Rule::Args, args.as_ref())?.as_ref();
+
+    let func = l
+        .get_global(name)
+        .ok_or(l.error("Please specify func name"))?;
+
+    match exp {
+        Rule::Exp(_) => {
+            let arg1v = eval_exp(l, exp)?;
+            let ret = l.funcall(func, vec![arg1v])?;
+            Ok(ret)
+        }
+        Rule::Nop => {
+            let ret = l.funcall(func, vec![])?;
+            Ok(ret)
+        }
+        _ => Err(l.error("Invalid rule")),
+    }
+}
+
 pub fn eval_ifthen(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
     let (exps, blocks) = is_exact_rule2!(Rule::IfStat, stat)?;
     let mut i = 0;
@@ -228,7 +251,7 @@ pub fn eval_chunk(l: &mut LuaState, chunk: &Rule) -> Result<Value, LuaError> {
 
 pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
     match stat {
-        Rule::Stat(kind, a, b, _c, _d, _e) => {
+        Rule::Stat(kind, a, b, c, _d, _e) => {
             let v = match kind {
                 StatKind::Sep => Value::Nil,
                 StatKind::VarAssign => {
@@ -265,6 +288,34 @@ pub fn eval_stat(l: &mut LuaState, stat: &Rule) -> Result<Value, LuaError> {
                         l.assign_local(name, value);
                     } else {
                         return Err(l.error("Expected in function def"));
+                    }
+                    Value::Nil
+                }
+                StatKind::ForIn => {
+                    let vars = is_exact_rule1!(Rule::SymbolList, a.as_ref().unwrap().as_ref())?;
+                    let funex = is_exact_rule1!(Rule::Exp, b.as_ref().unwrap().as_ref())?;
+                    let fc = is_exact_rule1!(Rule::Prefixexp, funex.as_ref())?;
+                    let mut loop_params = eval_funcall_multi(l, fc)?;
+                    let mut key = loop_params.pop().unwrap();
+                    let collction = loop_params.pop().unwrap();
+                    let next = loop_params.pop().unwrap();
+                    loop {
+                        let mut values =
+                            l.funcall(next.clone(), vec![collction.clone(), key.clone()])?;
+                        match values[0] {
+                            Value::Nil => {
+                                break;
+                            }
+                            _ => {}
+                        }
+                        key = values[0].to_owned();
+                        let oldtop = l.start_block_raw();
+                        for name in vars.iter().rev() {
+                            let name = is_exact_rule1!(Rule::Symbol, name.as_ref())?;
+                            l.assign_local(name, values.pop().unwrap());
+                        }
+                        eval_block(l, c.as_ref().unwrap().as_ref())?;
+                        l.end_block_raw(oldtop)?;
                     }
                     Value::Nil
                 }
