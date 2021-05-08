@@ -459,11 +459,11 @@ where
                 .map(|(_, name, _, ex1, _, ex2, ex3, _, blk, _)| {
                     Box::new(Rule::Stat(
                         StatKind::For,
+                        name.into(),
                         ex1.into(),
                         ex2.into(),
                         ex3.into(),
                         blk.into(),
-                        None,
                     ))
                 }),
         ),

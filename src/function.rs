@@ -1,9 +1,9 @@
-use log::*;
+// use log::*;
 use std::collections::HashMap;
 
+use crate::eval::eval_block;
 use crate::parser::Rule;
 use crate::state::{LuaError, LuaState};
-use crate::{eval::eval_block, value::Value};
 pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 
 #[derive(Clone)]
@@ -62,7 +62,6 @@ impl LuaFunction {
             };
 
             let l = args.0;
-            let oldtop = l.reg.top;
             let mut i: usize = 0;
             for name in self.proto.as_ref().unwrap().parameters.iter() {
                 i += 1;

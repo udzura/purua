@@ -101,7 +101,7 @@ pub fn eval_tableconst(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> 
     for field in list.iter() {
         let (key, value) = is_exact_rule2!(Rule::Field, field.as_ref())?;
         match key.as_ref() {
-            Rule::Symbol(n) => {
+            Rule::Symbol(_n) => {
                 unimplemented!("TODO: table");
             }
             Rule::Nop => {

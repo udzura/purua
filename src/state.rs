@@ -144,7 +144,7 @@ impl LuaState {
     ) -> Result<Value, LuaError> {
         let name: String = name.into();
         let oldtop = self.reg.top;
-        let params_n = 1;
+        let _params_n = 1;
         self.reg.push(arg1);
         let func = {
             let g = &self.g;
