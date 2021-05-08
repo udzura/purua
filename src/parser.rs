@@ -12,6 +12,7 @@ pub enum Rule {
     Numeral(i32),
     LiteralString(String),
     Symbol(String),
+    SymbolList(Vec<Box<Rule>>),
     Chunk(Vec<Box<Rule>>, Option<Box<Rule>>), // vec<stat>, laststat
     Block(Box<Rule>),
     Stat(
@@ -123,6 +124,16 @@ where
     (letter(), many(alpha_num()))
         .skip(spaces())
         .map(|(c, v): (char, String)| Box::new(Rule::Symbol(format!("{}{}", c, v))))
+}
+
+pub fn symbollist<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    sep_by1(symbol(), token(',').skip(spaces()))
+        .map(|vec: Vec<Box<Rule>>| Box::new(Rule::SymbolList(vec)))
+        .skip(spaces())
 }
 
 pub fn var<Input>() -> impl Parser<Input, Output = Box<Rule>>
@@ -430,6 +441,51 @@ where
                     ))
                 }),
         ),
+        attempt(
+            (
+                reserved("for"),
+                symbol(),
+                token('=').skip(spaces()),
+                exp(),
+                token(',').skip(spaces()),
+                exp(),
+                (token(',').skip(spaces()), exp())
+                    .map(|(_, ex)| ex)
+                    .or(value(nop())),
+                reserved("do"),
+                block(),
+                reserved("end"),
+            )
+                .map(|(_, name, _, ex1, _, ex2, ex3, _, blk, _)| {
+                    Box::new(Rule::Stat(
+                        StatKind::For,
+                        ex1.into(),
+                        ex2.into(),
+                        ex3.into(),
+                        blk.into(),
+                        None,
+                    ))
+                }),
+        ),
+        attempt((
+            reserved("for"),
+            symbollist(),
+            reserved("in"),
+            exp(), // TODO: explist?
+            reserved("do"),
+            block(),
+            reserved("end"),
+        ))
+        .map(|(_, nl, _, ex, _, blk, _)| {
+            Box::new(Rule::Stat(
+                StatKind::ForIn,
+                nl.into(),
+                ex.into(),
+                blk.into(),
+                None,
+                None,
+            ))
+        }),
         attempt((var(), token('=').skip(spaces()), exp())).map(|(v, _, e)| {
             Box::new(Rule::Stat(
                 StatKind::VarAssign,
