@@ -7,6 +7,40 @@ fn lua_print(l: &mut LuaState) -> Result<i32, LuaError> {
     Ok(0)
 }
 
+fn lua_pairs(l: &mut LuaState) -> LuaResult<i32> {
+    let tbl = l.arg_value(1)?;
+
+    l.returns(l.get_global("next").unwrap());
+    l.returns(tbl);
+    l.returns(Value::Nil);
+    Ok(3)
+}
+
+fn lua_next(l: &mut LuaState) -> LuaResult<i32> {
+    let tbl = l.arg_value(1)?;
+    let t = tbl.ensure_table()?;
+    let index = l.arg_value(2)?;
+    match index {
+        Value::Nil => {
+            l.returns(Value::Number(1));
+            l.returns(t.vec.borrow()[0].clone());
+            Ok(2)
+        }
+        Value::Number(i) => {
+            if t.vec.borrow().len() as i64 <= i {
+                l.returns(Value::Nil);
+                Ok(1)
+            } else {
+                l.returns(Value::Number(i + 1));
+                let index = i as usize;
+                l.returns(t.vec.borrow()[index].clone());
+                Ok(2)
+            }
+        }
+        _ => Err(l.error(format!("invalid argument {:?}", index))),
+    }
+}
+
 fn lua_global_set(l: &mut LuaState) -> Result<i32, LuaError> {
     let v = l.arg_string(1)?;
     println!("set foo={}", v);
@@ -85,6 +119,9 @@ fn lua_print_array(l: &mut LuaState) -> LuaResult<i32> {
 pub fn prelude(l: &mut LuaState) {
     // register fn
     l.register_global_fn("print", lua_print);
+    l.register_global_fn("pairs", lua_pairs);
+    l.register_global_fn("next", lua_next);
+
     l.register_global_fn("fib", lua_fib);
     l.register_global_fn("globalset", lua_global_set);
     l.register_global_fn("globalget", lua_global_get);

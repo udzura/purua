@@ -63,6 +63,11 @@ impl Registry {
             message: "TypeError: cannot cast into str".to_string(),
         })
     }
+
+    pub fn to_value(&self, pos: usize) -> Result<Value, LuaError> {
+        let idx = self.top - pos;
+        Ok((&self.array[idx]).to_owned())
+    }
 }
 
 pub struct LuaState {
@@ -95,6 +100,10 @@ impl LuaState {
 
     pub fn arg_string(&self, pos: usize) -> Result<String, LuaError> {
         self.reg.to_string(pos)
+    }
+
+    pub fn arg_value(&self, pos: usize) -> Result<Value, LuaError> {
+        self.reg.to_value(pos)
     }
 
     pub fn assign_global(&mut self, name: impl Into<String>, value: Value) {
@@ -139,7 +148,7 @@ impl LuaState {
 
     pub fn start_block_raw(&mut self) -> usize {
         let oldtop = self.reg.top;
-        let mut frame = CallFrame {
+        let frame = CallFrame {
             args_nr: 0,
             ret_nr: 0,
             env: Default::default(),
@@ -161,7 +170,7 @@ impl LuaState {
     pub fn funcall(&mut self, func: Value, params: Vec<Value>) -> LuaResult<Vec<Value>> {
         let oldtop = self.reg.top;
         let params_n = params.len();
-        for arg in params.into_iter() {
+        for arg in params.into_iter().rev() {
             self.reg.push(arg);
         }
 
@@ -173,9 +182,11 @@ impl LuaState {
         let retnr = func.do_call((self,))?;
 
         let mut ret = Vec::with_capacity(params_n);
-        for i in 0..retnr {
-            let i = i as usize;
-            ret.insert(params_n - 1 - i, self.reg.ensure_pop()?);
+        if retnr > 0 {
+            for _ in 0..retnr {
+                ret.push(self.reg.ensure_pop()?);
+            }
+            ret = ret.into_iter().rev().collect();
         }
 
         while oldtop < self.reg.top {
@@ -322,6 +333,7 @@ impl LuaState {
         }
     }
 
+    // TODO: this should be called after params are all refered
     pub fn returns(&mut self, retval: Value) {
         self.reg.push(retval);
     }
