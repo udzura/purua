@@ -49,24 +49,21 @@ impl Registry {
     }
 
     pub fn to_int(&self, pos: usize) -> Result<i64, LuaError> {
-        let idx = self.top - pos;
-        let value = &self.array[idx];
+        let value = &self.array[pos];
         value.to_int().ok_or(LuaError {
             message: "TypeError: cannot cast into int".to_string(),
         })
     }
 
     pub fn to_string(&self, pos: usize) -> Result<String, LuaError> {
-        let idx = self.top - pos;
-        let value = &self.array[idx];
+        let value = &self.array[pos];
         value.to_string().ok_or(LuaError {
             message: "TypeError: cannot cast into str".to_string(),
         })
     }
 
     pub fn to_value(&self, pos: usize) -> Result<Value, LuaError> {
-        let idx = self.top - pos;
-        Ok((&self.array[idx]).to_owned())
+        Ok((&self.array[pos]).to_owned())
     }
 }
 
@@ -94,16 +91,20 @@ impl LuaState {
         }
     }
 
+    pub fn arg_index2pos(&self, pos: usize) -> LuaResult<usize> {
+        Ok(self.ensure_current_frame()?.local_base + pos - 1)
+    }
+
     pub fn arg_int(&self, pos: usize) -> Result<i64, LuaError> {
-        self.reg.to_int(pos)
+        self.reg.to_int(self.arg_index2pos(pos)?)
     }
 
     pub fn arg_string(&self, pos: usize) -> Result<String, LuaError> {
-        self.reg.to_string(pos)
+        self.reg.to_string(self.arg_index2pos(pos)?)
     }
 
     pub fn arg_value(&self, pos: usize) -> Result<Value, LuaError> {
-        self.reg.to_value(pos)
+        self.reg.to_value(self.arg_index2pos(pos)?)
     }
 
     pub fn assign_global(&mut self, name: impl Into<String>, value: Value) {
@@ -153,6 +154,7 @@ impl LuaState {
             ret_nr: 0,
             env: Default::default(),
             to_return: false,
+            local_base: oldtop,
         };
         self.frame_stack.push(frame);
         oldtop
@@ -307,6 +309,11 @@ impl LuaState {
 
     pub fn current_frame(&self) -> Option<&CallFrame> {
         self.frame_stack.last()
+    }
+
+    pub fn ensure_current_frame(&self) -> LuaResult<&CallFrame> {
+        self.current_frame()
+            .ok_or(self.error("not calledin function"))
     }
 
     pub fn has_local_name(&self, name: impl Into<String>) -> bool {

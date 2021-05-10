@@ -18,6 +18,7 @@ pub struct CallFrame {
     pub to_return: bool,
     pub args_nr: usize,
     pub ret_nr: usize,
+    pub local_base: usize,
 }
 
 #[derive(Clone)]
@@ -54,21 +55,22 @@ impl LuaFunction {
             // Use fn_traits in the future
             luafn(args.0)
         } else {
+            let l = args.0;
+
+            let args_nr = self.proto.as_ref().unwrap().parameters.len();
             let mut frame = CallFrame {
-                args_nr: 0,
+                args_nr: args_nr,
                 ret_nr: 1,
                 env: Default::default(),
                 to_return: false,
+                local_base: l.reg.top - args_nr,
             };
 
-            let l = args.0;
-            let mut i: usize = 0;
-            for name in self.proto.as_ref().unwrap().parameters.iter() {
-                i += 1;
+            for (i, name) in self.proto.as_ref().unwrap().parameters.iter().enumerate() {
+                let i = i + 1;
                 let idx = l.reg.top - i;
                 frame.env.insert(name.to_string(), idx);
             }
-            frame.args_nr = i;
             l.frame_stack.push(frame);
 
             let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
