@@ -177,7 +177,9 @@ impl LuaState {
         }
 
         let func = if let Value::Function(func) = func {
-            func.clone()
+            let mut f = func.clone();
+            f.proto.params_nr = params_n as i32;
+            f
         } else {
             return Err(self.error(format!("Specified value is not func {:?}", func)));
         };
@@ -205,7 +207,6 @@ impl LuaState {
     ) -> Result<Value, LuaError> {
         let name: String = name.into();
         let oldtop = self.reg.top;
-        let _params_n = 1;
         self.reg.push(arg1);
         let func = {
             let g = &self.g;
@@ -215,7 +216,9 @@ impl LuaState {
                 .ok_or(self.error(format!("Specified func {} not found", name)))?;
 
             if let Value::Function(func) = val {
-                func.clone()
+                let mut f = func.clone();
+                f.proto.params_nr = 1;
+                f
             } else {
                 return Err(self.error(format!("Specified name {} is not func {:?}", name, val)));
             }
