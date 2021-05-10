@@ -9,6 +9,7 @@ pub type LuaFn = fn(&mut LuaState) -> Result<i32, LuaError>;
 #[derive(Clone)]
 pub struct FunctionProto {
     pub parameters: Vec<String>,
+    pub params_nr: i32,
     pub code: Box<Rule>,
 }
 
@@ -18,60 +19,80 @@ pub struct CallFrame {
     pub to_return: bool,
     pub args_nr: usize,
     pub ret_nr: usize,
+    pub local_base: usize,
 }
 
 #[derive(Clone)]
 pub struct LuaFunction {
     is_global: bool,
-    pub proto: Option<FunctionProto>,
+    pub proto: FunctionProto,
     pub luafn: Option<LuaFn>,
 }
 
 impl LuaFunction {
     pub fn from_fn(func: LuaFn) -> Self {
+        let proto = FunctionProto {
+            params_nr: -1,
+            parameters: vec![],
+            code: Box::new(Rule::Nop),
+        };
+
         LuaFunction {
             is_global: true,
-            proto: None,
+            proto: proto,
             luafn: Some(func),
         }
     }
 
     pub fn from_code(params: Vec<String>, block: &Rule) -> Self {
         let proto = FunctionProto {
+            params_nr: params.len() as i32,
             parameters: params,
             code: Box::new(block.to_owned()),
         };
 
         LuaFunction {
             is_global: true,
-            proto: Some(proto),
+            proto: proto,
             luafn: None,
         }
     }
 
     pub fn do_call(&self, args: (&mut LuaState,)) -> Result<i32, LuaError> {
+        let l = args.0;
+
         if let Some(luafn) = self.luafn {
             // Use fn_traits in the future
-            luafn(args.0)
-        } else {
-            let mut frame = CallFrame {
-                args_nr: 0,
+            let args_nr = self.proto.params_nr as usize;
+            let frame = CallFrame {
+                args_nr: args_nr,
                 ret_nr: 1,
                 env: Default::default(),
                 to_return: false,
+                local_base: l.reg.top - args_nr,
+            };
+            l.frame_stack.push(frame);
+            let rn = luafn(l)?;
+            l.frame_stack.pop();
+            Ok(rn)
+        } else {
+            let args_nr = self.proto.params_nr as usize;
+            let mut frame = CallFrame {
+                args_nr: args_nr,
+                ret_nr: 1,
+                env: Default::default(),
+                to_return: false,
+                local_base: l.reg.top - args_nr,
             };
 
-            let l = args.0;
-            let mut i: usize = 0;
-            for name in self.proto.as_ref().unwrap().parameters.iter() {
-                i += 1;
+            for (i, name) in self.proto.parameters.iter().enumerate() {
+                let i = i + 1;
                 let idx = l.reg.top - i;
                 frame.env.insert(name.to_string(), idx);
             }
-            frame.args_nr = i;
             l.frame_stack.push(frame);
 
-            let v = eval_block(l, self.proto.as_ref().unwrap().code.as_ref())?;
+            let v = eval_block(l, self.proto.code.as_ref())?;
 
             l.frame_stack.pop();
 
