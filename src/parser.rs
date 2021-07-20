@@ -37,6 +37,7 @@ pub enum Rule {
     FieldList(Vec<Box<Rule>>), // vec<field>
     Field(Box<Rule>, Box<Rule>),
     BinOp(char, Box<Rule>, Box<Rule>),
+    UnOp(char, Box<Rule>),
     Nop,
 }
 
@@ -223,6 +224,23 @@ where
     chainl1(exp_(), token)
 }
 
+pub fn unop<Input>() -> impl Parser<Input, Output = Box<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (
+        choice((
+            attempt(string("not").map(|_| '!')).skip(spaces()),
+            char('-'),
+            char('#'),
+            char('~'),
+        )),
+        exp_(),
+    )
+        .map(|(op, e)| Box::new(Rule::UnOp(op, e)))
+}
+
 parser! {
     // For binop loop
     pub fn exp_[Input]() (Input) -> Box<Rule>
@@ -235,6 +253,7 @@ parser! {
             attempt(boolean()),
             numeral(),
             literal_string(),
+            unop(),
             prefixexp(),
             tableconstructor(),
         ))
