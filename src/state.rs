@@ -310,6 +310,36 @@ impl LuaState {
         Ok(ret)
     }
 
+    pub fn process_unop(
+        &self,
+        op: &combine::lib::primitive::char,
+        v: Value,
+    ) -> Result<Value, LuaError> {
+        let ret = match v {
+            Value::Number(n) => match op {
+                '-' => Value::Number(-n),
+                '~' => Value::Number(!n),
+                _ => {
+                    return Err(self.error("unsupported op"));
+                }
+            },
+            Value::Bool(b) => match op {
+                '!' => Value::Bool(!b),
+                _ => {
+                    return Err(self.error("unsupported op"));
+                }
+            },
+            Value::LuaString(s) => match op {
+                '#' => Value::Number(s.len() as i64),
+                _ => {
+                    return Err(self.error("unsupported op"));
+                }
+            },
+            _ => return Err(self.error("type error")),
+        };
+        Ok(ret)
+    }
+
     pub fn current_frame(&self) -> Option<&CallFrame> {
         self.frame_stack.last()
     }

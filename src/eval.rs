@@ -37,6 +37,7 @@ pub fn eval_exp(l: &mut LuaState, exp: &Rule) -> Result<Value, LuaError> {
         Rule::Prefixexp(_) => eval_prefixexp(l, exp_),
         Rule::TableConst(_) => eval_tableconst(l, exp_),
         Rule::BinOp(_, _, _) => eval_binop(l, exp_),
+        Rule::UnOp(_, _) => eval_unop(l, exp_),
         _ => Err(LuaError {
             message: format!("Unsupported exp rule: {:?}", exp_),
         }),
@@ -50,6 +51,7 @@ pub fn eval_binop(l: &mut LuaState, binop: &Rule) -> Result<Value, LuaError> {
             let lvalue = match lhs {
                 Rule::Exp(_) => eval_exp(l, lhs)?,
                 Rule::BinOp(_, _, _) => eval_binop(l, lhs)?,
+                Rule::UnOp(_, _) => eval_unop(l, lhs)?,
                 _ => {
                     return Err(l.error("lhs invalid"));
                 }
@@ -58,14 +60,34 @@ pub fn eval_binop(l: &mut LuaState, binop: &Rule) -> Result<Value, LuaError> {
             let rvalue = match rhs {
                 Rule::Exp(_) => eval_exp(l, rhs)?,
                 Rule::BinOp(_, _, _) => eval_binop(l, rhs)?,
+                Rule::UnOp(_, _) => eval_unop(l, rhs)?,
                 _ => {
-                    return Err(l.error("lhs invalid"));
+                    return Err(l.error("rhs invalid"));
                 }
             };
 
             l.process_op(c, lvalue, rvalue)
         }
         _ => Err(l.error("binop invalid")),
+    }
+}
+
+pub fn eval_unop(l: &mut LuaState, unop: &Rule) -> Result<Value, LuaError> {
+    match unop {
+        Rule::UnOp(c, exp) => {
+            let exp = exp.as_ref();
+            let value = match exp {
+                Rule::Exp(_) => eval_exp(l, exp)?,
+                Rule::BinOp(_, _, _) => eval_binop(l, exp)?,
+                Rule::UnOp(_, _) => eval_unop(l, exp)?,
+                _ => {
+                    return Err(l.error("unop exp invalid"));
+                }
+            };
+
+            l.process_unop(c, value)
+        }
+        _ => Err(l.error("unop invalid")),
     }
 }
 
