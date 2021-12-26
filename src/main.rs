@@ -29,10 +29,11 @@ struct Command {
 }
 
 fn main() {
+    println!("Test");
     let mut builder = env_logger::Builder::from_env("PULUA_LOG");
     builder.init();
 
-    let args = Command::from_args();
+    let args: Command = Command::from_args();
 
     let ret = if let Some(eval) = args.eval {
         do_main(eval.as_bytes())
