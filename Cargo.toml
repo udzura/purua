@@ -1,6 +1,6 @@
 [package]
 name = "purua"
-version = "0.0.2"
+version = "0.1.0"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 repository = "https://github.com/udzura/purua"
 keywords = ["lua", "embedded"]
@@ -13,7 +13,7 @@ edition = "2018"
 
 [dependencies]
 atty = "0.2.14"
-combine = "4.5.2"
+# combine = "4.5.2"
 # combine-language = "4.0.0"
 env_logger = "0.8.3"
 log = "0.4.14"
