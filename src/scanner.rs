@@ -1,6 +1,7 @@
 use crate::errors::ScanError;
 pub use crate::token_type::TokenType;
 
+#[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -17,6 +18,7 @@ impl Token {
     }
 }
 
+#[derive(Debug)]
 pub struct Scanner<'source> {
     pub source: &'source str,
     pub tokens: Vec<Token>,
@@ -39,13 +41,13 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan(&mut self) -> Result<usize, ScanError> {
+    pub fn scan(&mut self) -> Result<usize, ScanError> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token()?;
         }
 
-        self.tokens.push(Token::new(TokenType::Eos, "", self.line));
+        self.tokens.push(Token::new(TokenType::Eof, "", self.line));
         Ok(self.tokens.len())
     }
 
@@ -76,13 +78,21 @@ impl<'source> Scanner<'source> {
                 self.push_token(Comma);
             }
             '.' => {
-                self.push_token(Period);
+                if self.test('.')? {
+                    if self.test('.')? {
+                        self.push_token(Concat);
+                    } else {
+                        self.push_token(Dots);
+                    }
+                } else {
+                    self.push_token(Period);
+                }
             }
             '-' => {
                 // comment: --
                 if self.test('-')? {
                     while self.peek()? != '\n' && !self.is_at_end() {
-                        self.advance();
+                        self.advance()?;
                     }
                 } else {
                     self.push_token(Minus);
@@ -118,27 +128,33 @@ impl<'source> Scanner<'source> {
                 self.push_token(tok);
             }
             '=' => {
-                let tok = if self.test('=')? {
-                    TokenType::Eq
-                } else {
-                    Assign
-                };
+                let tok = if self.test('=')? { Eql } else { Assign };
                 self.push_token(tok);
             }
             '<' => {
-                let tok = if self.test('=')? { Le } else { Less };
-                self.push_token(tok);
+                if self.test('<')? {
+                    self.push_token(ShL);
+                } else if self.test('=')? {
+                    self.push_token(Le);
+                } else {
+                    self.push_token(Less);
+                }
             }
             '>' => {
-                let tok = if self.test('=')? { Ge } else { Greater };
-                self.push_token(tok);
+                if self.test('>')? {
+                    self.push_token(ShR);
+                } else if self.test('=')? {
+                    self.push_token(Ge);
+                } else {
+                    self.push_token(Greater);
+                }
             }
             '/' => {
                 let tok = if self.test('/')? { IDiv } else { Slash };
                 self.push_token(tok);
             }
             '#' => {
-                self.push_token(TokenType::Hash);
+                self.push_token(Opus);
             }
 
             ' ' | '\r' | '\t' => {
@@ -151,23 +167,103 @@ impl<'source> Scanner<'source> {
                 self.string()?;
             }
 
-            _ => {
-                todo!()
+            c => {
+                if is_digit(c) {
+                    self.number()?;
+                } else if is_alpha(c) {
+                    self.name()?;
+                } else {
+                    eprintln!("unexpected character: {}", c);
+                    return Err(ScanError::raise());
+                }
             }
         }
         Ok(())
     }
 
     fn string(&mut self) -> Result<(), ScanError> {
-        todo!()
+        while self.peek()? != '"' && !self.is_at_end() {
+            if self.peek()? == '\n' {
+                eprintln!("cannot contain linebreak");
+                return Err(ScanError::raise());
+            }
+            self.advance()?;
+        }
+
+        if self.is_at_end() {
+            eprintln!("Unterminated string");
+            return Err(ScanError::raise());
+        }
+
+        // The closing ".
+        self.advance()?;
+        self.push_token(TokenType::String);
+
+        Ok(())
     }
 
     fn number(&mut self) -> Result<(), ScanError> {
-        todo!()
+        let mut is_float = false;
+        while is_digit(self.peek()?) {
+            self.advance()?;
+        }
+        if self.peek()? == '.' && is_digit(self.peek_next()?) {
+            // Consume the "."
+            self.advance()?;
+
+            while is_digit(self.peek()?) {
+                self.advance()?;
+            }
+            is_float = true
+        }
+
+        if is_float {
+            self.push_token(TokenType::Float);
+        } else {
+            self.push_token(TokenType::Int);
+        }
+        Ok(())
     }
 
     fn name(&mut self) -> Result<(), ScanError> {
-        todo!()
+        use TokenType::*;
+
+        while is_alphanumeric(self.peek()?) {
+            self.advance()?;
+        }
+
+        let start = self.start;
+        let end = self.current;
+        let text = &self.source[start..end];
+
+        let tok = match text {
+            "and" => And,
+            "break" => Break,
+            "do" => Do,
+            "else" => Else,
+            "elseif" => Elseif,
+            "end" => End,
+            "false" => False,
+            "for" => For,
+            "function" => Function,
+            "goto" => Goto,
+            "if" => If,
+            "in" => In,
+            "local" => Local,
+            "nil" => Nil,
+            "not" => Not,
+            "or" => Or,
+            "repeat" => Repeat,
+            "return" => Return,
+            "then" => Then,
+            "true" => True,
+            "until" => Until,
+            "while" => While,
+            _ => Name,
+        };
+
+        self.push_token(tok);
+        Ok(())
     }
 
     fn advance(&mut self) -> Result<char, ScanError> {

@@ -1,7 +1,7 @@
 #[repr(u16)]
 #[derive(Debug)]
 pub enum TokenType {
-    Hash = b'#' as u16,
+    Opus = b'#' as u16,
     Perc = b'%' as u16,
     Amp = b'&' as u16,
     ParenL = b'(' as u16,
@@ -49,16 +49,16 @@ pub enum TokenType {
     While,
 
     IDiv,
-    Contcat,
+    Concat,
     Dots,
-    Eq,
+    Eql,
     Ge,
     Le,
     Ne,
     ShL,
     ShR,
     DbColon,
-    Eos,
+    Eof,
 
     Float,
     Int,
