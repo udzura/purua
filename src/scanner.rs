@@ -163,8 +163,11 @@ impl<'source> Scanner<'source> {
             '\n' => {
                 self.line += 1;
             }
+            '\'' => {
+                self.string('\'')?;
+            }
             '"' => {
-                self.string()?;
+                self.string('"')?;
             }
 
             c => {
@@ -181,8 +184,8 @@ impl<'source> Scanner<'source> {
         Ok(())
     }
 
-    fn string(&mut self) -> Result<(), ScanError> {
-        while self.peek()? != '"' && !self.is_at_end() {
+    fn string(&mut self, quote: char) -> Result<(), ScanError> {
+        while self.peek()? != quote && !self.is_at_end() {
             if self.peek()? == '\n' {
                 eprintln!("cannot contain linebreak");
                 return Err(ScanError::raise());
