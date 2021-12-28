@@ -1,7 +1,7 @@
 use crate::errors::ScanError;
 pub use crate::token_type::TokenType;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -198,9 +198,9 @@ impl<'source> Scanner<'source> {
             return Err(ScanError::raise());
         }
 
-        // The closing ".
+        // The closing quote.
         self.advance()?;
-        self.push_token(TokenType::String);
+        self.push_token(TokenType::StringLit);
 
         Ok(())
     }
