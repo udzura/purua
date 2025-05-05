@@ -1,7 +1,7 @@
 use crate::errors::ScanError;
 pub use crate::token_type::TokenType;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,

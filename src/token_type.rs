@@ -1,5 +1,5 @@
 #[repr(u16)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
     Opus = b'#' as u16,
     Perc = b'%' as u16,
