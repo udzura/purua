@@ -99,6 +99,7 @@ fn test_scanned_2() -> Result<(), Box<dyn Error>> {
     let mut scanner = Scanner::new(source);
     scanner.scan()?;
 
+    // dbg!(&scanner.tokens);
     assert_eq!(157, scanner.tokens.len());
     Ok(())
 }
