@@ -2,7 +2,7 @@ extern crate purua;
 
 fn main() {
     const SOURCE: &str = "foo = 1
-    bar = 2
+    bar, buz, quz = 2, 3.5, \"hoge\"
     return 3";
     let mut scanner = purua::scanner::Scanner::new(SOURCE);
     scanner.scan().unwrap();

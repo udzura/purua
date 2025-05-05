@@ -1,4 +1,4 @@
-use combine::{many1, optional, parser, token, Parser, Stream, StreamOnce, ParseError};
+use combine::{many1, optional, parser, sep_by1, token, ParseError, Parser, Stream, StreamOnce};
 
 use crate::Token;
 use crate::token_type::TokenType;
@@ -147,7 +147,11 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many1(var()).map(|vars| VarList(vars))
+    sep_by1(
+        var(),
+        token(TokenType::Comma.into()),
+    )
+    .map(|vars| VarList(vars))
 }
 
 fn var<Input>() -> impl Parser<Input, Output = Var>
@@ -180,7 +184,11 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many1(expr()).map(|exprs| ExprList(exprs))
+    sep_by1(
+        expr(),
+        token(TokenType::Comma.into()),
+    )
+    .map(|exprs| ExprList(exprs))
 }
 
 fn expr<Input>() -> impl Parser<Input, Output = Expr>
@@ -195,7 +203,8 @@ where
     let nil = token(TokenType::Nil.into()).map(|_| Expr::Nil);
     let false_expr = token(TokenType::False.into()).map(|_| Expr::False);
     let true_expr = token(TokenType::True.into()).map(|_| Expr::True);
-    let number = token(TokenType::Int.into()).map(|num: Token| Expr::Number(num.try_into().unwrap()));
+    let number = token(TokenType::Int.into()).map(|num: Token| Expr::Number(num.try_into().unwrap()))
+        .or(token(TokenType::Float.into()).map(|num: Token| Expr::Number(num.try_into().unwrap())));
     let string = token(TokenType::StringLit.into()).map(|s: Token| Expr::String(s.try_into().unwrap()));
     let dots = token(TokenType::Dots.into()).map(|_| Expr::Dots);
     nil.or(false_expr)
