@@ -1,11 +1,27 @@
 use crate::errors::ScanError;
 pub use crate::token_type::TokenType;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub line: usize,
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        self.token_type == other.token_type
+    }
+}
+
+impl From<TokenType> for Token {
+    fn from(token_type: TokenType) -> Self {
+        Self {
+            token_type,
+            lexeme: String::new(),
+            line: 0,
+        }
+    }
 }
 
 impl Token {
@@ -14,6 +30,29 @@ impl Token {
             token_type,
             lexeme: lexeme.into(),
             line,
+        }
+    }
+}
+
+impl TryFrom<Token> for String {
+    type Error = ScanError;
+
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value.token_type {
+            TokenType::StringLit => Ok(value.lexeme),
+            _ => Err(ScanError::raise()),
+        }
+    }
+}
+
+impl TryFrom<Token> for f64 {
+    type Error = ScanError;
+
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value.token_type {
+            TokenType::Int => value.lexeme.parse::<f64>().map_err(|_| ScanError::raise()),
+            TokenType::Float => value.lexeme.parse::<f64>().map_err(|_| ScanError::raise()),
+            _ => Err(ScanError::raise()),
         }
     }
 }
