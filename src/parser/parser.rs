@@ -77,10 +77,10 @@ where
         .or(while_block)
         .or(repeat_block)
         .or(if_block)
-        .or(for_block)
+        .or(attempt(for_block))
         .or(for_in_block)
         .or(function_decl)
-        .or(local_function_decl)
+        .or(attempt(local_function_decl))
         .or(local_var_decl)
 }
 
