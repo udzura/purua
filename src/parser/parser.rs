@@ -371,16 +371,17 @@ parser! {
         Input: Stream<Token = Token>,
     ] {
         let name = token(TokenType::Name.into()).map(|name| Var::VarName(name));
-        name
-        // let prefixexp_idx = prefixexp();
-        // let prefixexp_mem = prefixexp();
-        // let index = token(TokenType::BracketL.into())
-        //     .with(expr_binop_bottom())
-        //     .skip(token(TokenType::BracketR.into()));
-        // let dot_name = token(TokenType::Period.into())
-        //     .with(token(TokenType::Name.into()));
-        // name.or(prefixexp_idx.and(index).map(|(prefix, index)| Var::VarIdx(prefix, Box::new(index))))
-        //     .or(prefixexp_mem.and(dot_name).map(|(prefix, name)| Var::VarMember(prefix, name)))
+        let prefixexp_idx = prefixexp_name_mocked(); // TODO: true prefixname?
+        let prefixexp_mem = prefixexp_name_mocked(); // TODO: true prefixname?
+        let index = token(TokenType::BracketL.into())
+            .with(expr_binop_bottom())
+            .skip(token(TokenType::BracketR.into()));
+        let dot_name = token(TokenType::Period.into())
+            .with(token(TokenType::Name.into()));
+
+        attempt(prefixexp_idx.and(index).map(|(prefix, index)| Var::VarIdx(prefix, Box::new(index))))
+            .or(attempt(prefixexp_mem.and(dot_name).map(|(prefix, name)| Var::VarMember(prefix, name))))
+            .or(name)
     }
 }
 
@@ -498,6 +499,18 @@ parser! {
         let var = var();
         let paren = token(TokenType::ParenL.into()).with(expr_binop_bottom()).skip(token(TokenType::ParenR.into()));
         var.map(|var| PrefixExp::PrefixVar(Box::new(var)))
+            .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
+    }
+}
+
+parser! {
+    fn prefixexp_name_mocked[Input]()(Input) -> PrefixExp
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let var_name_mocked = token(TokenType::Name.into()).map(|name| Var::VarName(name));
+        let paren = token(TokenType::ParenL.into()).with(expr_binop_bottom()).skip(token(TokenType::ParenR.into()));
+        var_name_mocked.map(|var| PrefixExp::PrefixVar(Box::new(var)))
             .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
     }
 }
