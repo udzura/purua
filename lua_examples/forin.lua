@@ -10,7 +10,7 @@ do
    print("\n")
 end
 
-tbl = { "hello", "world", "from", "array" }
+-- tbl = { "hello", "world", "from", "array" }
 
 for i, v in pairs(tbl)
 do
