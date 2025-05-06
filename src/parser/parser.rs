@@ -1,5 +1,5 @@
 use combine::{
-    attempt, many1, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce
+    attempt, chainl1, many, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce
 };
 
 use super::ast;
@@ -11,12 +11,15 @@ use crate::Token;
 pub fn parse(stream: TokenStream) -> Result<Block, String> {
     let mut parser = (block(), token(TokenType::Eof.into()));
     let result = parser.parse(stream);
+
     match &result {
         Ok(((block, _), _)) => {
             dbg!(block);
             Ok(block.clone())
         }
-        Err(err) => Err(format!("Parse error: {:?}", err)),
+        Err(err) => {
+            Err(format!("Parse error: {:?}", err))
+        }
     }
 }
 
@@ -40,7 +43,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many1(stat())
+    many(stat())
         .and(optional(laststat()))
         .map(|(stat, last_stat)| Chunk(stat, last_stat))
 }
@@ -91,7 +94,7 @@ where
     >,
 {
     let varlist = varlist();
-    let exprlist = exprlist();
+    let exprlist = exprlist1();
     (varlist, token(TokenType::Assign.into()), exprlist)
         .map(|(varlist, _, exprlist)| Stat::Assign(varlist, exprlist))
 }
@@ -136,7 +139,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let expr = expr();
+    let expr = expr_binop_bottom();
     let block = block();
     (
         token(TokenType::While.into()),
@@ -158,7 +161,7 @@ where
     >,
 {
     let block = block();
-    let expr = expr();
+    let expr = expr_binop_bottom();
     (
         token(TokenType::Repeat.into()),
         block,
@@ -177,12 +180,12 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let expr_elseif = expr();
-    let expr = expr();
+    let expr_elseif = expr_binop_bottom();
+    let expr = expr_binop_bottom();
     let block_elseif = block();
     let block_else = block();
     let block = block();
-    let elseif_block = many1(
+    let elseif_block = many(
         (
             token(TokenType::Elseif.into()),
             expr_elseif,
@@ -216,9 +219,9 @@ where
     >,
 {
     let name = token(TokenType::Name.into());
-    let expr_init = expr();
-    let expr_cond = expr();
-    let expr_incr = expr();
+    let expr_init = expr_binop_bottom();
+    let expr_cond = expr_binop_bottom();
+    let expr_incr = expr_binop_bottom();
     let block = block();
     (
         token(TokenType::For.into()),
@@ -372,7 +375,7 @@ parser! {
         // let prefixexp_idx = prefixexp();
         // let prefixexp_mem = prefixexp();
         // let index = token(TokenType::BracketL.into())
-        //     .with(expr())
+        //     .with(expr_binop_bottom())
         //     .skip(token(TokenType::BracketR.into()));
         // let dot_name = token(TokenType::Period.into())
         //     .with(token(TokenType::Name.into()));
@@ -406,7 +409,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    sep_by1(expr(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
+    sep_by1(expr_binop_bottom(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
 }
 
 fn exprlist<Input>() -> impl Parser<Input, Output = ExprList>
@@ -418,7 +421,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    sep_by(expr(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
+    sep_by(expr_binop_bottom(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
 }
 
 parser! {
@@ -426,7 +429,7 @@ parser! {
     where [
         Input: Stream<Token = Token>,
     ] {
-        expr_upper()
+        attempt(expr_upper())
             .or(expr_lower())
     }
 }
@@ -470,8 +473,7 @@ where
     function
         .or(prefixexp().map(|prefix| Expr::PrefixExp(prefix)))
         .or(tableconstructor().map(|table| Expr::TableConstructor(table)))
-        .or(expr_binop_primary())
-        .or(unop().and(expr()).map(|(unop, expr)| Expr::Unop(unop, Box::new(expr))))
+        .or(unop().and(expr_binop_bottom()).map(|(unop, expr)| Expr::Unop(unop, Box::new(expr))))
 }
 
 parser! {
@@ -480,31 +482,40 @@ parser! {
         Input: Stream<Token = Token>,
     ] {
         let var = var();
-        // let function_call = functioncall();
-        let paren = token(TokenType::ParenL.into()).with(expr()).skip(token(TokenType::ParenR.into()));
-        var.map(|var| PrefixExp::PrefixVar(Box::new(var)))
-            // .or(function_call.map(|call| PrefixExp::PrefixCall(call)))
+        let function_call = functioncall();
+        let paren = token(TokenType::ParenL.into()).with(expr_binop_bottom()).skip(token(TokenType::ParenR.into()));
+        attempt(function_call.map(|call| PrefixExp::PrefixCall(call)))
+            .or(var.map(|var| PrefixExp::PrefixVar(Box::new(var))))
             .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
     }
 }
 
-fn functioncall<Input>() -> impl Parser<Input, Output = FunctionCall>
-where
-    Input: Stream<Token = Token>,
-    <Input as StreamOnce>::Error: ParseError<
-        <Input as StreamOnce>::Token,
-        <Input as StreamOnce>::Range,
-        <Input as StreamOnce>::Position,
-    >,
-{
-    let prefixexp = prefixexp();
-    let args = args();
-    (
-        prefixexp,
-        optional(token(TokenType::Colon.into()).with(token(TokenType::Name.into()))),
-        args,
-    )
-        .map(|(prefix, name, args)| FunctionCall(Box::new(prefix), name, args))
+parser! {
+    fn prefixexp_lowered[Input]()(Input) -> PrefixExp
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let var = var();
+        let paren = token(TokenType::ParenL.into()).with(expr_binop_bottom()).skip(token(TokenType::ParenR.into()));
+        var.map(|var| PrefixExp::PrefixVar(Box::new(var)))
+            .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
+    }
+}
+
+parser! {
+    fn functioncall[Input]()(Input) -> FunctionCall
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let prefixexp = prefixexp_lowered();
+        let args = args();
+        (
+            prefixexp,
+            optional(token(TokenType::Colon.into()).with(token(TokenType::Name.into()))),
+            args,
+        )
+            .map(|(prefix, name, args)| FunctionCall(Box::new(prefix), name, args))
+    }
 }
 
 fn args<Input>() -> impl Parser<Input, Output = Args>
@@ -553,11 +564,10 @@ where
         token(TokenType::ParenL.into()),
         param_list,
         token(TokenType::ParenR.into()),
-        token(TokenType::Do.into()),
         block,
         token(TokenType::End.into()),
     )
-        .map(|(_, param_list, _, _, block, _)| FuncBody(param_list, block))
+        .map(|(_, param_list, _, block, _)| FuncBody(param_list, block))
 }
 
 fn paramlist<Input>() -> impl Parser<Input, Output = ParamList>
@@ -618,15 +628,15 @@ where
     >,
 {
     let index = token(TokenType::BracketL.into())
-        .with(expr())
+        .with(expr_binop_bottom())
         .skip(token(TokenType::BracketR.into()));
     let assign = || token(TokenType::Assign.into());
     let name = token(TokenType::Name.into());
-    let field_assign = (index, assign(), expr())
+    let field_assign = (index, assign(), expr_binop_bottom())
         .map(|(index, _, expr)| Field::AssignIdx(Box::new(index), Box::new(expr)));
     let field_name =
-        (name, assign(), expr()).map(|(name, _, expr)| Field::AssignName(name, Box::new(expr)));
-    let field_expr = expr().map(|expr| Field::UniExp(Box::new(expr)));
+        (name, assign(), expr_binop_bottom()).map(|(name, _, expr)| Field::AssignName(name, Box::new(expr)));
+    let field_expr = expr_binop_bottom().map(|expr| Field::UniExp(Box::new(expr)));
     field_assign.or(field_name).or(field_expr)
 }
 
@@ -645,7 +655,8 @@ where
 }
 
 // TODO: precedence!
-fn expr_binop_primary<Input>() -> impl Parser<Input, Output = Expr>
+// TODO: this is the "root" expr, rename it.
+fn expr_binop_bottom<Input>() -> impl Parser<Input, Output = Expr>
 where
     Input: Stream<Token = Token>,
     <Input as StreamOnce>::Error: ParseError<
@@ -654,12 +665,11 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let binop = binop();
-    let expr1 = expr();
-    let expr2 = expr();
-    (expr1, binop, expr2).map(|(expr1, binop, expr2)| {
-        Expr::Binop(Box::new(expr1), binop, Box::new(expr2))
-    })
+    let binop = attempt(binop()
+        .map(|binop| |l, r| {
+            Expr::Binop(Box::new(l), binop, Box::new(r))
+        }));
+    chainl1(expr(), binop)
 }
 
 // TODO: precedence!
