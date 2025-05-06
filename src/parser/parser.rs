@@ -1,37 +1,20 @@
 use combine::{
-    many1, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce,
+    attempt, many1, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce
 };
 
 use super::ast;
 use super::ast::*;
 use super::stream::TokenStream;
 use crate::token_type::TokenType;
-use crate::token_type::TokenType::*;
 use crate::Token;
 
 pub fn parse(stream: TokenStream) -> Result<Block, String> {
-    let mut parser = block();
+    let mut parser = (block(), token(TokenType::Eof.into()));
     let result = parser.parse(stream);
     match &result {
-        Ok((block, _)) => {
+        Ok(((block, _), _)) => {
             dbg!(block);
             Ok(block.clone())
-        }
-        Err(err) => Err(format!("Parse error: {:?}", err)),
-    }
-}
-
-pub fn parse_dummy(stream: TokenStream) -> Result<(), String> {
-    let c: Token = Int.into();
-    let tok = token(c);
-    let eof: Token = Eof.into();
-    let mut parser = (many1(tok).map(|v: Vec<Token>| v), token(eof));
-
-    let result: Result<(_, TokenStream), super::stream::TokenStreamError> = parser.parse(stream);
-    match result {
-        Ok((tok, _)) => {
-            dbg!(tok);
-            Ok(())
         }
         Err(err) => Err(format!("Parse error: {:?}", err)),
     }
@@ -72,7 +55,7 @@ where
     >,
 {
     let assign = stat_assign();
-    // let function_call = function_call();
+    let function_call = stat_function_call();
     let do_block = stat_do_block();
     let while_block = stat_while_block();
     let repeat_block = stat_repeat_block();
@@ -83,7 +66,10 @@ where
     let local_function_decl = stat_local_function_decl();
     let local_var_decl = stat_local_var_decl();
 
-    assign
+    attempt(assign)
+        .or(attempt(
+            function_call
+        ))
         .or(do_block)
         .or(while_block)
         .or(repeat_block)
@@ -108,6 +94,19 @@ where
     let exprlist = exprlist();
     (varlist, token(TokenType::Assign.into()), exprlist)
         .map(|(varlist, _, exprlist)| Stat::Assign(varlist, exprlist))
+}
+
+fn stat_function_call<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let function_call = functioncall();
+    function_call.map(|function_call| Stat::FunctionCall(function_call))
 }
 
 fn stat_do_block<Input>() -> impl Parser<Input, Output = Stat>
@@ -369,15 +368,16 @@ parser! {
         Input: Stream<Token = Token>,
     ] {
         let name = token(TokenType::Name.into()).map(|name| Var::VarName(name));
-        let prefixexp_idx = prefixexp();
-        let prefixexp_mem = prefixexp();
-        let index = token(TokenType::BracketL.into())
-            .with(expr())
-            .skip(token(TokenType::BraceR.into()));
-        let dot_name = token(TokenType::Period.into())
-            .with(token(TokenType::Name.into()));
-        name.or(prefixexp_idx.and(index).map(|(prefix, index)| Var::VarIdx(prefix, Box::new(index))))
-            .or(prefixexp_mem.and(dot_name).map(|(prefix, name)| Var::VarMember(prefix, name)))
+        name
+        // let prefixexp_idx = prefixexp();
+        // let prefixexp_mem = prefixexp();
+        // let index = token(TokenType::BracketL.into())
+        //     .with(expr())
+        //     .skip(token(TokenType::BracketR.into()));
+        // let dot_name = token(TokenType::Period.into())
+        //     .with(token(TokenType::Name.into()));
+        // name.or(prefixexp_idx.and(index).map(|(prefix, index)| Var::VarIdx(prefix, Box::new(index))))
+        //     .or(prefixexp_mem.and(dot_name).map(|(prefix, name)| Var::VarMember(prefix, name)))
     }
 }
 
@@ -480,10 +480,10 @@ parser! {
         Input: Stream<Token = Token>,
     ] {
         let var = var();
-        let function_call = functioncall();
+        // let function_call = functioncall();
         let paren = token(TokenType::ParenL.into()).with(expr()).skip(token(TokenType::ParenR.into()));
         var.map(|var| PrefixExp::PrefixVar(Box::new(var)))
-            .or(function_call.map(|call| PrefixExp::PrefixCall(call)))
+            // .or(function_call.map(|call| PrefixExp::PrefixCall(call)))
             .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
     }
 }

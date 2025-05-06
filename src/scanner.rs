@@ -61,6 +61,7 @@ impl TryFrom<Token> for f64 {
 pub struct Scanner<'source> {
     pub source: &'source str,
     pub tokens: Vec<Token>,
+    pub comments: Vec<Token>,
     start: usize,
     current: usize,
     line: usize,
@@ -71,9 +72,11 @@ pub struct Scanner<'source> {
 impl<'source> Scanner<'source> {
     pub fn new(source: &'source str) -> Self {
         let tokens = Vec::new();
+        let comments = Vec::new();
         Self {
             source,
             tokens,
+            comments,
             start: 0,
             current: 0,
             line: 1,
@@ -133,6 +136,7 @@ impl<'source> Scanner<'source> {
                     while self.peek()? != '\n' && !self.is_at_end() {
                         self.advance()?;
                     }
+                    self.push_comment();
                 } else {
                     self.push_token(Minus);
                 }
@@ -357,6 +361,11 @@ impl<'source> Scanner<'source> {
     fn push_token(&mut self, token_type: TokenType) {
         let lexeme = &self.source[self.start..self.current];
         self.tokens.push(Token::new(token_type, lexeme, self.line));
+    }
+
+    fn push_comment(&mut self) {
+        let lexeme = &self.source[self.start..self.current];
+        self.comments.push(Token::new(TokenType::Comment, lexeme, self.line));
     }
 }
 

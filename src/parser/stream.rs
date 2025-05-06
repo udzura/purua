@@ -15,7 +15,10 @@ pub struct TokenStreamError {
 
 impl StreamError<Token, Vec<Token>> for TokenStreamError {
     fn unexpected_token(token: Token) -> Self {
-        todo!()
+        eprintln!("unexpected token: {:?}", token);
+        TokenStreamError {
+            position: token.line,
+        }
     }
 
     fn unexpected_range(token: Vec<Token>) -> Self {
@@ -30,7 +33,10 @@ impl StreamError<Token, Vec<Token>> for TokenStreamError {
     }
 
     fn expected_token(token: Token) -> Self {
-        todo!()
+        eprintln!("expected token: {:?}", token);
+        TokenStreamError {
+            position: token.line,
+        }
     }
 
     fn expected_range(token: Vec<Token>) -> Self {
@@ -83,11 +89,11 @@ impl ParseError<Token, Vec<Token>, usize> for TokenStreamError {
     }
 
     fn set_position(&mut self, position: usize) {
-        todo!()
+        self.position = position;
     }
 
     fn add(&mut self, err: Self::StreamError) {
-        todo!()
+        eprintln!("added error: {:?}", err);
     }
 
     fn set_expected<F>(self_: &mut combine::error::Tracked<Self>, info: Self::StreamError, f: F)

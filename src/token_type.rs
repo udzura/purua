@@ -64,4 +64,6 @@ pub enum TokenType {
     Int,
     Name,
     StringLit,
+
+    Comment,
 }
