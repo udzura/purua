@@ -1,6 +1,6 @@
 [package]
 name = "purua"
-version = "0.1.0"
+version = "0.2.0-alpha1"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 repository = "https://github.com/udzura/purua"
 keywords = ["lua", "embedded"]
