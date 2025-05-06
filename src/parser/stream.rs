@@ -1,6 +1,6 @@
 use crate::Token;
 
-use combine::{StreamOnce, stream::ResetStream, Positioned, error::StreamError, ParseError};
+use combine::{error::StreamError, stream::ResetStream, ParseError, Positioned, StreamOnce};
 
 #[derive(Debug, Clone)]
 pub struct TokenStream {
@@ -13,56 +13,60 @@ pub struct TokenStreamError {
     pub position: usize,
 }
 
-impl StreamError<Token, Vec<Token>> for TokenStreamError {    
+impl StreamError<Token, Vec<Token>> for TokenStreamError {
     fn unexpected_token(token: Token) -> Self {
         todo!()
     }
-    
+
     fn unexpected_range(token: Vec<Token>) -> Self {
         todo!()
     }
-    
+
     fn unexpected_format<T>(msg: T) -> Self
     where
-        T: std::fmt::Display {
+        T: std::fmt::Display,
+    {
         todo!()
     }
-    
+
     fn expected_token(token: Token) -> Self {
         todo!()
     }
-    
+
     fn expected_range(token: Vec<Token>) -> Self {
         todo!()
     }
-    
+
     fn expected_format<T>(msg: T) -> Self
     where
-        T: std::fmt::Display {
+        T: std::fmt::Display,
+    {
         todo!()
     }
-    
+
     fn message_token(token: Token) -> Self {
         todo!()
     }
-    
+
     fn message_range(token: Vec<Token>) -> Self {
         todo!()
     }
-    
+
     fn message_format<T>(msg: T) -> Self
     where
-        T: std::fmt::Display {
+        T: std::fmt::Display,
+    {
         todo!()
     }
-    
+
     fn is_unexpected_end_of_input(&self) -> bool {
         todo!()
     }
-    
+
     fn into_other<T>(self) -> T
     where
-        T: StreamError<Token, Vec<Token>> {
+        T: StreamError<Token, Vec<Token>>,
+    {
         todo!()
     }
 }
@@ -70,50 +74,46 @@ impl StreamError<Token, Vec<Token>> for TokenStreamError {
 impl ParseError<Token, Vec<Token>, usize> for TokenStreamError {
     type StreamError = Self;
     fn from_error(position: usize, _message: TokenStreamError) -> Self {
-        TokenStreamError {
-            position,
-        }
+        TokenStreamError { position }
     }
-    
+
     fn empty(position: usize) -> Self {
         dbg!("reached empty");
-        TokenStreamError {
-            position,
-        }        
+        TokenStreamError { position }
     }
-    
+
     fn set_position(&mut self, position: usize) {
         todo!()
     }
-    
+
     fn add(&mut self, err: Self::StreamError) {
         todo!()
     }
-    
+
     fn set_expected<F>(self_: &mut combine::error::Tracked<Self>, info: Self::StreamError, f: F)
     where
-        F: FnOnce(&mut combine::error::Tracked<Self>) {
+        F: FnOnce(&mut combine::error::Tracked<Self>),
+    {
         todo!()
     }
-    
+
     fn is_unexpected_end_of_input(&self) -> bool {
         todo!()
     }
-    
+
     fn into_other<T>(self) -> T
     where
-        T: ParseError<Token, Vec<Token>, usize> {
+        T: ParseError<Token, Vec<Token>, usize>,
+    {
         todo!()
     }
 }
 
 impl TokenStreamError {
     pub fn empty(position: usize) -> Self {
-        TokenStreamError {
-            position,
-        }
+        TokenStreamError { position }
     }
-}       
+}
 
 impl Extend<Token> for TokenStream {
     fn extend<T: IntoIterator<Item = Token>>(&mut self, iter: T) {
@@ -138,10 +138,10 @@ impl StreamOnce for TokenStream {
             Ok(token)
         }
     }
-    
+
     fn is_partial(&self) -> bool {
         false
-    }    
+    }
 }
 
 impl ResetStream for TokenStream {
@@ -151,7 +151,7 @@ impl ResetStream for TokenStream {
         self.position = checkpoint;
         Ok(())
     }
-    
+
     fn checkpoint(&self) -> Self::Checkpoint {
         self.position
     }
@@ -165,9 +165,6 @@ impl Positioned for TokenStream {
 
 impl TokenStream {
     pub const fn new(input: Vec<Token>) -> Self {
-        TokenStream {
-            input,
-            position: 0,
-        }
+        TokenStream { input, position: 0 }
     }
 }

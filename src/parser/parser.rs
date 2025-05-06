@@ -1,10 +1,13 @@
-use combine::{many1, optional, parser, sep_by1, token, ParseError, Parser, Stream, StreamOnce};
+use combine::{
+    many1, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce,
+};
 
-use crate::Token;
-use crate::token_type::TokenType;
-use crate::token_type::TokenType::*;
+use super::ast;
 use super::ast::*;
 use super::stream::TokenStream;
+use crate::token_type::TokenType;
+use crate::token_type::TokenType::*;
+use crate::Token;
 
 pub fn parse(stream: TokenStream) -> Result<Block, String> {
     let mut parser = block();
@@ -13,7 +16,7 @@ pub fn parse(stream: TokenStream) -> Result<Block, String> {
         Ok((block, _)) => {
             dbg!(block);
             Ok(block.clone())
-        },
+        }
         Err(err) => Err(format!("Parse error: {:?}", err)),
     }
 }
@@ -22,16 +25,16 @@ pub fn parse_dummy(stream: TokenStream) -> Result<(), String> {
     let c: Token = Int.into();
     let tok = token(c);
     let eof: Token = Eof.into();
-    let mut parser= (many1(tok).map(|v: Vec<Token>| v), token(eof));
+    let mut parser = (many1(tok).map(|v: Vec<Token>| v), token(eof));
 
     let result: Result<(_, TokenStream), super::stream::TokenStreamError> = parser.parse(stream);
     match result {
         Ok((tok, _)) => {
             dbg!(tok);
             Ok(())
-        },
+        }
         Err(err) => Err(format!("Parse error: {:?}", err)),
-    }    
+    }
 }
 
 parser! {
@@ -54,10 +57,9 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many1(stat()).and(optional(last_stat()))
-        .map(|(stat, last_stat)| {
-            Chunk(stat, last_stat)
-        })
+    many1(stat())
+        .and(optional(laststat()))
+        .map(|(stat, last_stat)| Chunk(stat, last_stat))
 }
 
 fn stat<Input>() -> impl Parser<Input, Output = Stat>
@@ -72,24 +74,25 @@ where
     let assign = stat_assign();
     // let function_call = function_call();
     let do_block = stat_do_block();
-    // let while_block = while_block();
-    // let repeat_block = repeat_block();
-    // let if_block = if_block();
-    // let for_block = for_block();
-    // let for_in_block = for_in_block();
-    // let function_decl = function_decl();
-    // let local_function_decl = local_function_decl();
-    // let local_var_decl = local_var_decl();
+    let while_block = stat_while_block();
+    let repeat_block = stat_repeat_block();
+    let if_block = stat_if_block();
+    let for_block = stat_for_block();
+    let for_in_block = stat_for_in_block();
+    let function_decl = stat_function_decl();
+    let local_function_decl = stat_local_function_decl();
+    let local_var_decl = stat_local_var_decl();
 
-    assign.or(do_block)
-        // .or(while_block)
-        // .or(repeat_block)
-        // .or(if_block)
-        // .or(for_block)
-        // .or(for_in_block)
-        // .or(function_decl)
-        // .or(local_function_decl)
-        // .or(local_var_decl)
+    assign
+        .or(do_block)
+        .or(while_block)
+        .or(repeat_block)
+        .or(if_block)
+        .or(for_block)
+        .or(for_in_block)
+        .or(function_decl)
+        .or(local_function_decl)
+        .or(local_var_decl)
 }
 
 fn stat_assign<Input>() -> impl Parser<Input, Output = Stat>
@@ -117,11 +120,205 @@ where
     >,
 {
     let block = block();
-    (token(TokenType::Do.into()), block, token(TokenType::End.into()))
+    (
+        token(TokenType::Do.into()),
+        block,
+        token(TokenType::End.into()),
+    )
         .map(|(_, block, _)| Stat::Do(block))
 }
 
-fn last_stat<Input>() -> impl Parser<Input, Output = LastStat>
+fn stat_while_block<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let expr = expr();
+    let block = block();
+    (
+        token(TokenType::While.into()),
+        expr,
+        token(TokenType::Do.into()),
+        block,
+        token(TokenType::End.into()),
+    )
+        .map(|(_, expr, _, block, _)| Stat::While(Box::new(expr), block))
+}
+
+fn stat_repeat_block<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let block = block();
+    let expr = expr();
+    (
+        token(TokenType::Repeat.into()),
+        block,
+        token(TokenType::Until.into()),
+        expr,
+    )
+        .map(|(_, block, _, expr)| Stat::Repeat(Box::new(expr), block))
+}
+
+fn stat_if_block<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let expr_elseif = expr();
+    let expr = expr();
+    let block_elseif = block();
+    let block_else = block();
+    let block = block();
+    let elseif_block = many1(
+        (
+            token(TokenType::Elseif.into()),
+            expr_elseif,
+            token(TokenType::Then.into()),
+            block_elseif,
+        )
+            .map(|(_, expr, _, block)| (Box::new(expr), block)),
+    );
+    let else_block = optional((token(TokenType::Else.into()), block_else).map(|(_, block)| block));
+    (
+        token(TokenType::If.into()),
+        expr,
+        token(TokenType::Then.into()),
+        block,
+        elseif_block,
+        else_block,
+        token(TokenType::End.into()),
+    )
+        .map(|(_, expr, _, block, elseif_block, else_block, _)| {
+            Stat::If(Box::new(expr), block, elseif_block, else_block)
+        })
+}
+
+fn stat_for_block<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name = token(TokenType::Name.into());
+    let expr_init = expr();
+    let expr_cond = expr();
+    let expr_incr = expr();
+    let block = block();
+    (
+        token(TokenType::For.into()),
+        name,
+        token(TokenType::Assign.into()),
+        expr_init,
+        token(TokenType::Comma.into()),
+        expr_cond,
+        optional(token(TokenType::Comma.into()).with(expr_incr)),
+        token(TokenType::Do.into()),
+        block,
+        token(TokenType::End.into()),
+    )
+        .map(|(_, name, _, expr1, _, expr2, expr3, _, block, _)| {
+            Stat::For(
+                name,
+                Box::new(expr1),
+                Box::new(expr2),
+                expr3.map(Box::new),
+                block,
+            )
+        })
+}
+
+fn stat_for_in_block<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name_list = namelist();
+    let expr_list = exprlist();
+    let block = block();
+    (
+        token(TokenType::For.into()),
+        name_list,
+        token(TokenType::In.into()),
+        expr_list,
+        token(TokenType::Do.into()),
+        block,
+        token(TokenType::End.into()),
+    )
+        .map(|(_, name_list, _, expr_list, _, block, _)| Stat::ForIn(name_list, expr_list, block))
+}
+
+fn stat_function_decl<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let func_name = funcname();
+    let func_body = funcbody();
+    (token(TokenType::Function.into()), func_name, func_body)
+        .map(|(_, func_name, func_body)| Stat::Function(func_name, func_body))
+}
+
+fn stat_local_function_decl<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name = token(TokenType::Name.into());
+    let func_body = funcbody();
+    (
+        token(TokenType::Local.into()),
+        token(TokenType::Function.into()),
+        name,
+        func_body,
+    )
+        .map(|(_, _, name, func_body)| Stat::LocalFunction(name, func_body))
+}
+
+fn stat_local_var_decl<Input>() -> impl Parser<Input, Output = Stat>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name_list = namelist();
+    let expr_list = optional(token(TokenType::Assign.into()).with(exprlist1()));
+    (token(TokenType::Local.into()), name_list, expr_list)
+        .map(|(_, name_list, expr_list)| Stat::LocalDeclVar(name_list, expr_list))
+}
+
+fn laststat<Input>() -> impl Parser<Input, Output = LastStat>
 where
     Input: Stream<Token = Token>,
     <Input as StreamOnce>::Error: ParseError<
@@ -133,9 +330,25 @@ where
     let return_stat = token(TokenType::Return.into())
         .and(optional(exprlist()))
         .map(|(_, exprlist)| LastStat::Return(exprlist));
-    let break_stat = token(TokenType::Break.into())
-        .map(|_| LastStat::Break);
+    let break_stat = token(TokenType::Break.into()).map(|_| LastStat::Break);
     return_stat.or(break_stat)
+}
+
+fn funcname<Input>() -> impl Parser<Input, Output = FuncName>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name = token(TokenType::Name.into());
+    let dot = token(TokenType::Period.into());
+    let colon_name = token(TokenType::Colon.into()).with(token(TokenType::Name.into()));
+    sep_by1(name, dot)
+        .and(optional(colon_name))
+        .map(|(names, colon)| FuncName(names, colon))
 }
 
 fn varlist<Input>() -> impl Parser<Input, Output = VarList>
@@ -147,14 +360,28 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    sep_by1(
-        var(),
-        token(TokenType::Comma.into()),
-    )
-    .map(|vars| VarList(vars))
+    sep_by1(var(), token(TokenType::Comma.into())).map(|vars| VarList(vars))
 }
 
-fn var<Input>() -> impl Parser<Input, Output = Var>
+parser! {
+    fn var[Input]()(Input) -> Var
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let name = token(TokenType::Name.into()).map(|name| Var::VarName(name));
+        let prefixexp_idx = prefixexp();
+        let prefixexp_mem = prefixexp();
+        let index = token(TokenType::BracketL.into())
+            .with(expr())
+            .skip(token(TokenType::BraceR.into()));
+        let dot_name = token(TokenType::Period.into())
+            .with(token(TokenType::Name.into()));
+        name.or(prefixexp_idx.and(index).map(|(prefix, index)| Var::VarIdx(prefix, Box::new(index))))
+            .or(prefixexp_mem.and(dot_name).map(|(prefix, name)| Var::VarMember(prefix, name)))
+    }
+}
+
+fn namelist<Input>() -> impl Parser<Input, Output = NameList>
 where
     Input: Stream<Token = Token>,
     <Input as StreamOnce>::Error: ParseError<
@@ -163,16 +390,23 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let name = token(TokenType::Name.into()).map(|name| Var::VarName(name));
-    // let prefixexp = prefixexp();
-    // let index = token(TokenType::LBracket.into())
-    //     .with(expr())
-    //     .skip(token(TokenType::RBracket.into()));
-    // let dot_name = token(TokenType::Dot.into())
-    //     .with(token(TokenType::Name.into()));
-    // name.or(prefixexp.and(index).map(|(prefix, index)| Var::Index(prefix, index)))
-    //     .or(prefixexp.and(dot_name).map(|(prefix, name)| Var::Dot(prefix, name)))
-    name
+    sep_by1(
+        token(TokenType::Name.into()),
+        token(TokenType::Comma.into()),
+    )
+    .map(|names| NameList(names))
+}
+
+fn exprlist1<Input>() -> impl Parser<Input, Output = ExprList>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    sep_by1(expr(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
 }
 
 fn exprlist<Input>() -> impl Parser<Input, Output = ExprList>
@@ -184,32 +418,291 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    sep_by1(
-        expr(),
-        token(TokenType::Comma.into()),
-    )
-    .map(|exprs| ExprList(exprs))
+    sep_by(expr(), token(TokenType::Comma.into())).map(|exprs| ExprList(exprs))
 }
 
-fn expr<Input>() -> impl Parser<Input, Output = Expr>
+parser! {
+    fn expr[Input]()(Input) -> Expr
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        expr_upper()
+            .or(expr_lower())
+    }
+}
+
+fn expr_upper<Input>() -> impl Parser<Input, Output = Expr>
 where
     Input: Stream<Token = Token>,
     <Input as StreamOnce>::Error: ParseError<
         <Input as StreamOnce>::Token,
         <Input as StreamOnce>::Range,
         <Input as StreamOnce>::Position,
-    >, 
+    >,
 {
     let nil = token(TokenType::Nil.into()).map(|_| Expr::Nil);
     let false_expr = token(TokenType::False.into()).map(|_| Expr::False);
     let true_expr = token(TokenType::True.into()).map(|_| Expr::True);
-    let number = token(TokenType::Int.into()).map(|num: Token| Expr::Number(num.try_into().unwrap()))
+    let number = token(TokenType::Int.into())
+        .map(|num: Token| Expr::Number(num.try_into().unwrap()))
         .or(token(TokenType::Float.into()).map(|num: Token| Expr::Number(num.try_into().unwrap())));
-    let string = token(TokenType::StringLit.into()).map(|s: Token| Expr::String(s.try_into().unwrap()));
+    let string =
+        token(TokenType::StringLit.into()).map(|s: Token| Expr::String(s.try_into().unwrap()));
     let dots = token(TokenType::Dots.into()).map(|_| Expr::Dots);
     nil.or(false_expr)
-        .or(true_expr)
-        .or(number)
+            .or(true_expr)
+            .or(number)
+            .or(string)
+            .or(dots)
+}
+
+
+fn expr_lower<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let function = function().map(|fun| Expr::Function(fun));
+    function
+        .or(prefixexp().map(|prefix| Expr::PrefixExp(prefix)))
+        .or(tableconstructor().map(|table| Expr::TableConstructor(table)))
+        .or(expr_binop_primary())
+        .or(unop().and(expr()).map(|(unop, expr)| Expr::Unop(unop, Box::new(expr))))
+}
+
+parser! {
+    fn prefixexp[Input]()(Input) -> PrefixExp
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let var = var();
+        let function_call = functioncall();
+        let paren = token(TokenType::ParenL.into()).with(expr()).skip(token(TokenType::ParenR.into()));
+        var.map(|var| PrefixExp::PrefixVar(Box::new(var)))
+            .or(function_call.map(|call| PrefixExp::PrefixCall(call)))
+            .or(paren.map(|expr| PrefixExp::PrefixParen(Box::new(expr))))
+    }
+}
+
+fn functioncall<Input>() -> impl Parser<Input, Output = FunctionCall>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let prefixexp = prefixexp();
+    let args = args();
+    (
+        prefixexp,
+        optional(token(TokenType::Colon.into()).with(token(TokenType::Name.into()))),
+        args,
+    )
+        .map(|(prefix, name, args)| FunctionCall(Box::new(prefix), name, args))
+}
+
+fn args<Input>() -> impl Parser<Input, Output = Args>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let expr_list = exprlist();
+    let table_constructor = tableconstructor().map(|table| Args::ArgsTable(table));
+    let string =
+        token(TokenType::StringLit.into()).map(|s: Token| Args::ArgsString(s.try_into().unwrap()));
+    token(TokenType::ParenL.into())
+        .with(expr_list)
+        .skip(token(TokenType::ParenR.into()))
+        .map(|expr_list| Args::ArgsList(expr_list))
+        .or(table_constructor)
         .or(string)
-        .or(dots)
+}
+
+parser! {
+    fn function[Input]()(Input) -> ast::Function
+    where [
+        Input: Stream<Token = Token>,
+    ] {
+        let func_body = funcbody();
+        token(TokenType::Function.into()).with(func_body).map(|func_body| ast::Function(func_body))
+    }
+}
+
+fn funcbody<Input>() -> impl Parser<Input, Output = FuncBody>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let param_list = paramlist();
+    let block = block();
+    (
+        token(TokenType::ParenL.into()),
+        param_list,
+        token(TokenType::ParenR.into()),
+        token(TokenType::Do.into()),
+        block,
+        token(TokenType::End.into()),
+    )
+        .map(|(_, param_list, _, _, block, _)| FuncBody(param_list, block))
+}
+
+fn paramlist<Input>() -> impl Parser<Input, Output = ParamList>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let name_list = namelist();
+    let dots = token(TokenType::Dots.into());
+    let vararg = optional(dots).map(|_| true);
+    (name_list, vararg).map(|(name_list, vararg)| ParamList(name_list, vararg))
+}
+
+fn tableconstructor<Input>() -> impl Parser<Input, Output = TableConstructor>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let field_list = fieldlist();
+    (
+        token(TokenType::BraceL.into()),
+        field_list,
+        token(TokenType::BraceR.into()),
+    )
+        .map(|(_, field_list, _)| TableConstructor(field_list))
+}
+
+fn fieldlist<Input>() -> impl Parser<Input, Output = FieldList>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let field = field();
+    sep_by1(field, fieldsep())
+        .skip(optional(fieldsep()))
+        .map(|fields| FieldList(fields))
+}
+
+fn field<Input>() -> impl Parser<Input, Output = Field>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let index = token(TokenType::BracketL.into())
+        .with(expr())
+        .skip(token(TokenType::BracketR.into()));
+    let assign = || token(TokenType::Assign.into());
+    let name = token(TokenType::Name.into());
+    let field_assign = (index, assign(), expr())
+        .map(|(index, _, expr)| Field::AssignIdx(Box::new(index), Box::new(expr)));
+    let field_name =
+        (name, assign(), expr()).map(|(name, _, expr)| Field::AssignName(name, Box::new(expr)));
+    let field_expr = expr().map(|expr| Field::UniExp(Box::new(expr)));
+    field_assign.or(field_name).or(field_expr)
+}
+
+fn fieldsep<Input>() -> impl Parser<Input, Output = Fieldsep>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Comma.into())
+        .or(token(TokenType::SemiColon.into()))
+        .map(|_| Fieldsep)
+}
+
+// TODO: precedence!
+fn expr_binop_primary<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop = binop();
+    let expr1 = expr();
+    let expr2 = expr();
+    (expr1, binop, expr2).map(|(expr1, binop, expr2)| {
+        Expr::Binop(Box::new(expr1), binop, Box::new(expr2))
+    })
+}
+
+// TODO: precedence!
+fn binop<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let op = token(TokenType::Plus.into())
+        .or(token(TokenType::Minus.into()))
+        .or(token(TokenType::Aster.into()))
+        .or(token(TokenType::Slash.into()))
+        .or(token(TokenType::Perc.into()))
+        .or(token(TokenType::Hat.into()))
+        .or(token(TokenType::Concat.into()))
+        .or(token(TokenType::And.into()))
+        .or(token(TokenType::Or.into()))
+        .or(token(TokenType::Eql.into()))
+        .or(token(TokenType::Ne.into()))
+        .or(token(TokenType::Less.into()))
+        .or(token(TokenType::Le.into()))
+        .or(token(TokenType::Greater.into()))
+        .or(token(TokenType::Ge.into()));
+
+    op.map(|op| Binop(op))
+}
+
+fn unop<Input>() -> impl Parser<Input, Output = Unop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let op = token(TokenType::Minus.into())
+        .or(token(TokenType::Not.into()))
+        .or(token(TokenType::Opus.into()));
+
+    op.map(|op| Unop(op))
 }

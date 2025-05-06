@@ -4,28 +4,28 @@
 //
 // chunk ::= {stat [`;´]} [laststat [`;´]]
 // block ::= chunk
-// stat ::=  varlist `=´ explist | 
-// 	 functioncall | 
-// 	 do block end | 
-// 	 while exp do block end | 
-// 	 repeat block until exp | 
-// 	 if exp then block {elseif exp then block} [else block] end | 
-// 	 for Name `=´ exp `,´ exp [`,´ exp] do block end | 
-// 	 for namelist in explist do block end | 
-// 	 function funcname funcbody | 
-// 	 local function Name funcbody | 
-// 	 local namelist [`=´ explist] 
+// stat ::=  varlist `=´ explist |
+// 	 functioncall |
+// 	 do block end |
+// 	 while exp do block end |
+// 	 repeat block until exp |
+// 	 if exp then block {elseif exp then block} [else block] end |
+// 	 for Name `=´ exp `,´ exp [`,´ exp] do block end |
+// 	 for namelist in explist do block end |
+// 	 function funcname funcbody |
+// 	 local function Name funcbody |
+// 	 local namelist [`=´ explist]
 // laststat ::= return [explist] | break
 // funcname ::= Name {`.´ Name} [`:´ Name]
 // varlist ::= var {`,´ var}
-// var ::=  Name | prefixexp `[´ exp `]´ | prefixexp `.´ Name 
+// var ::=  Name | prefixexp `[´ exp `]´ | prefixexp `.´ Name
 // namelist ::= Name {`,´ Name}
 // explist ::= {exp `,´} exp
-// exp ::=  nil | false | true | Number | String | `...´ | function | 
-// 	 prefixexp | tableconstructor | exp binop exp | unop exp 
+// exp ::=  nil | false | true | Number | String | `...´ | function |
+// 	 prefixexp | tableconstructor | exp binop exp | unop exp
 // prefixexp ::= var | functioncall | `(´ exp `)´
-// functioncall ::=  prefixexp args | prefixexp `:´ Name args 
-// args ::=  `(´ [explist] `)´ | tableconstructor | String 
+// functioncall ::=  prefixexp args | prefixexp `:´ Name args
+// args ::=  `(´ [explist] `)´ | tableconstructor | String
 // function ::= function funcbody
 // funcbody ::= `(´ [parlist] `)´ block end
 // parlist ::= namelist [`,´ `...´] | `...´
@@ -33,8 +33,8 @@
 // fieldlist ::= field {fieldsep field} [fieldsep]
 // field ::= `[´ exp `]´ `=´ exp | Name `=´ exp | exp
 // fieldsep ::= `,´ | `;´
-// binop ::= `+´ | `-´ | `*´ | `/´ | `^´ | `%´ | `..´ | 
-// 	 `<´ | `<=´ | `>´ | `>=´ | `==´ | `~=´ | 
+// binop ::= `+´ | `-´ | `*´ | `/´ | `^´ | `%´ | `..´ |
+// 	 `<´ | `<=´ | `>´ | `>=´ | `==´ | `~=´ |
 // 	 and | or
 // unop ::= `-´ | not | `#´
 //
@@ -77,7 +77,7 @@ pub struct VarList(pub Vec<Var>);
 pub enum Var {
     VarName(Token),
     VarIdx(PrefixExp, Box<Expr>),
-    VarMessage(PrefixExp, Token),
+    VarMember(PrefixExp, Token),
 }
 
 #[derive(Debug, Clone)]
@@ -132,9 +132,7 @@ pub struct ParamList(pub NameList, pub bool);
 pub struct TableConstructor(pub FieldList);
 
 #[derive(Debug, Clone)]
-pub struct FieldList {
-    pub fields: Vec<Field>,
-}
+pub struct FieldList(pub Vec<Field>);
 
 #[derive(Debug, Clone)]
 pub enum Field {
