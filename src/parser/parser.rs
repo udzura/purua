@@ -43,7 +43,10 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many(stat())
+    many(
+        stat().skip(
+            optional(token(TokenType::SemiColon.into()))
+        ))
         .and(optional(laststat()))
         .map(|(stat, last_stat)| Chunk(stat, last_stat))
 }
