@@ -394,7 +394,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    sep_by1(
+    sep_by(
         token(TokenType::Name.into()),
         token(TokenType::Comma.into()),
     )
