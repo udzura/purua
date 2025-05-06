@@ -11,7 +11,7 @@ fn main() {
         scanner.scan().unwrap();
         let tokens = scanner.tokens;
         dbg!(&tokens);
-    
+
         let stream = purua::parser::stream::TokenStream::new(tokens);
         purua::parser::parser::parse(stream).unwrap();
     };

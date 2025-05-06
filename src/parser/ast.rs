@@ -97,7 +97,7 @@ pub enum Expr {
     Function(Function),
     PrefixExp(PrefixExp),
     TableConstructor(TableConstructor),
-    Binop(Box<Expr>, Binop, Box<Expr>),
+    ExprBinop(Box<Expr>, Binop, Box<Expr>),
     Unop(Unop, Box<Expr>),
 }
 

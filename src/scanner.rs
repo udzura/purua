@@ -365,7 +365,8 @@ impl<'source> Scanner<'source> {
 
     fn push_comment(&mut self) {
         let lexeme = &self.source[self.start..self.current];
-        self.comments.push(Token::new(TokenType::Comment, lexeme, self.line));
+        self.comments
+            .push(Token::new(TokenType::Comment, lexeme, self.line));
     }
 }
 

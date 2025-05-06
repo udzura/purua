@@ -1,5 +1,6 @@
 use combine::{
-    attempt, chainl1, many, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream, StreamOnce
+    attempt, chainl1, many, optional, parser, sep_by, sep_by1, token, ParseError, Parser, Stream,
+    StreamOnce,
 };
 
 use super::ast;
@@ -17,9 +18,7 @@ pub fn parse(stream: TokenStream) -> Result<Block, String> {
             dbg!(block);
             Ok(block.clone())
         }
-        Err(err) => {
-            Err(format!("Parse error: {:?}", err))
-        }
+        Err(err) => Err(format!("Parse error: {:?}", err)),
     }
 }
 
@@ -43,10 +42,7 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    many(
-        stat().skip(
-            optional(token(TokenType::SemiColon.into()))
-        ))
+    many(stat().skip(optional(token(TokenType::SemiColon.into()))))
         .and(optional(laststat()))
         .map(|(stat, last_stat)| Chunk(stat, last_stat))
 }
@@ -73,9 +69,7 @@ where
     let local_var_decl = stat_local_var_decl();
 
     attempt(assign)
-        .or(attempt(
-            function_call
-        ))
+        .or(attempt(function_call))
         .or(do_block)
         .or(while_block)
         .or(repeat_block)
@@ -457,12 +451,11 @@ where
         token(TokenType::StringLit.into()).map(|s: Token| Expr::String(s.try_into().unwrap()));
     let dots = token(TokenType::Dots.into()).map(|_| Expr::Dots);
     nil.or(false_expr)
-            .or(true_expr)
-            .or(number)
-            .or(string)
-            .or(dots)
+        .or(true_expr)
+        .or(number)
+        .or(string)
+        .or(dots)
 }
-
 
 fn expr_lower<Input>() -> impl Parser<Input, Output = Expr>
 where
@@ -477,7 +470,9 @@ where
     function
         .or(prefixexp().map(|prefix| Expr::PrefixExp(prefix)))
         .or(tableconstructor().map(|table| Expr::TableConstructor(table)))
-        .or(unop().and(expr_binop_bottom()).map(|(unop, expr)| Expr::Unop(unop, Box::new(expr))))
+        .or(unop()
+            .and(expr_binop_bottom())
+            .map(|(unop, expr)| Expr::Unop(unop, Box::new(expr))))
 }
 
 parser! {
@@ -650,8 +645,8 @@ where
     let name = token(TokenType::Name.into());
     let field_assign = (index, assign(), expr_binop_bottom())
         .map(|(index, _, expr)| Field::AssignIdx(Box::new(index), Box::new(expr)));
-    let field_name =
-        (name, assign(), expr_binop_bottom()).map(|(name, _, expr)| Field::AssignName(name, Box::new(expr)));
+    let field_name = (name, assign(), expr_binop_bottom())
+        .map(|(name, _, expr)| Field::AssignName(name, Box::new(expr)));
     let field_expr = expr_binop_bottom().map(|expr| Field::UniExp(Box::new(expr)));
     field_assign.or(field_name).or(field_expr)
 }
@@ -670,7 +665,6 @@ where
         .map(|_| Fieldsep)
 }
 
-// TODO: precedence!
 // TODO: this is the "root" expr, rename it.
 fn expr_binop_bottom<Input>() -> impl Parser<Input, Output = Expr>
 where
@@ -681,15 +675,10 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let binop = attempt(binop()
-        .map(|binop| |l, r| {
-            Expr::Binop(Box::new(l), binop, Box::new(r))
-        }));
-    chainl1(expr(), binop)
+    expr_binop_or()
 }
 
-// TODO: precedence!
-fn binop<Input>() -> impl Parser<Input, Output = Binop>
+fn expr_binop_hat<Input>() -> impl Parser<Input, Output = Expr>
 where
     Input: Stream<Token = Token>,
     <Input as StreamOnce>::Error: ParseError<
@@ -698,23 +687,188 @@ where
         <Input as StreamOnce>::Position,
     >,
 {
-    let op = token(TokenType::Plus.into())
-        .or(token(TokenType::Minus.into()))
-        .or(token(TokenType::Aster.into()))
+    let binop =
+        attempt(binop_hat().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr(), binop)
+}
+
+fn binop_hat<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Hat.into()).map(|op| Binop(op))
+}
+
+// FIXME: insert true precedence of unop...
+fn expr_binop_muldiv<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop = attempt(binop_muldiv().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_hat(), binop)
+}
+
+fn binop_muldiv<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Aster.into())
         .or(token(TokenType::Slash.into()))
         .or(token(TokenType::Perc.into()))
-        .or(token(TokenType::Hat.into()))
-        .or(token(TokenType::Concat.into()))
-        .or(token(TokenType::And.into()))
-        .or(token(TokenType::Or.into()))
-        .or(token(TokenType::Eql.into()))
+        .map(|op| Binop(op))
+}
+
+fn expr_binop_addsub<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop =
+        attempt(binop_addsub().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_muldiv(), binop)
+}
+
+fn binop_addsub<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Plus.into())
+        .or(token(TokenType::Minus.into()))
+        .map(|op| Binop(op))
+}
+
+fn expr_binop_concat<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop =
+        attempt(binop_concat().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_addsub(), binop)
+}
+
+fn binop_concat<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Concat.into()).map(|op| Binop(op))
+}
+
+fn expr_binop_compare<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop =
+        attempt(binop_compare().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_concat(), binop)
+}
+
+fn binop_compare<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Eql.into())
         .or(token(TokenType::Ne.into()))
         .or(token(TokenType::Less.into()))
         .or(token(TokenType::Le.into()))
         .or(token(TokenType::Greater.into()))
-        .or(token(TokenType::Ge.into()));
+        .or(token(TokenType::Ge.into()))
+        .map(|op| Binop(op))
+}
 
-    op.map(|op| Binop(op))
+fn expr_binop_and<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop =
+        attempt(binop_and().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_compare(), binop)
+}
+
+fn binop_and<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::And.into()).map(|op| Binop(op))
+}
+
+fn expr_binop_or<Input>() -> impl Parser<Input, Output = Expr>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    let binop =
+        attempt(binop_or().map(|binop| |l, r| Expr::ExprBinop(Box::new(l), binop, Box::new(r))));
+    chainl1(expr_binop_and(), binop)
+}
+
+fn binop_or<Input>() -> impl Parser<Input, Output = Binop>
+where
+    Input: Stream<Token = Token>,
+    <Input as StreamOnce>::Error: ParseError<
+        <Input as StreamOnce>::Token,
+        <Input as StreamOnce>::Range,
+        <Input as StreamOnce>::Position,
+    >,
+{
+    token(TokenType::Or.into()).map(|op| Binop(op))
 }
 
 fn unop<Input>() -> impl Parser<Input, Output = Unop>
