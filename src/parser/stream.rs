@@ -2,6 +2,14 @@ use crate::Token;
 
 use combine::{error::StreamError, stream::ResetStream, ParseError, Positioned, StreamOnce};
 
+macro_rules! debug_error_msg {
+    ($($msg:tt)*) => {
+        if std::env::var("DEBUG").is_ok() {
+            eprintln!($($msg)*);
+        }
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct TokenStream {
     pub input: Vec<Token>,
@@ -15,7 +23,7 @@ pub struct TokenStreamError {
 
 impl StreamError<Token, Vec<Token>> for TokenStreamError {
     fn unexpected_token(token: Token) -> Self {
-        eprintln!("unexpected token: {:?}", token);
+        debug_error_msg!("unexpected token: {:?}", token);
         TokenStreamError {
             position: token.line,
         }
@@ -33,7 +41,7 @@ impl StreamError<Token, Vec<Token>> for TokenStreamError {
     }
 
     fn expected_token(token: Token) -> Self {
-        eprintln!("expected token: {:?}", token);
+        debug_error_msg!("expected token: {:?}", token);
         TokenStreamError {
             position: token.line,
         }
@@ -84,7 +92,7 @@ impl ParseError<Token, Vec<Token>, usize> for TokenStreamError {
     }
 
     fn empty(position: usize) -> Self {
-        dbg!("reached empty");
+        debug_error_msg!("reached empty");
         TokenStreamError { position }
     }
 
@@ -93,7 +101,7 @@ impl ParseError<Token, Vec<Token>, usize> for TokenStreamError {
     }
 
     fn add(&mut self, err: Self::StreamError) {
-        eprintln!("added error: {:?}", err);
+        debug_error_msg!("added error: {:?}", err);
     }
 
     fn set_expected<F>(self_: &mut combine::error::Tracked<Self>, info: Self::StreamError, f: F)
