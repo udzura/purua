@@ -21,6 +21,7 @@ pub struct TokenStreamError {
     pub position: usize,
 }
 
+#[allow(unused_variables)]
 impl StreamError<Token, Vec<Token>> for TokenStreamError {
     fn unexpected_token(token: Token) -> Self {
         debug_error_msg!("unexpected token: {:?}", token);
@@ -85,6 +86,7 @@ impl StreamError<Token, Vec<Token>> for TokenStreamError {
     }
 }
 
+#[allow(unused_variables)]
 impl ParseError<Token, Vec<Token>, usize> for TokenStreamError {
     type StreamError = Self;
     fn from_error(position: usize, _message: TokenStreamError) -> Self {
