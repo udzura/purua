@@ -39,7 +39,25 @@ impl TryFrom<Token> for String {
 
     fn try_from(value: Token) -> Result<Self, Self::Error> {
         match value.token_type {
-            TokenType::StringLit => Ok(value.lexeme),
+            TokenType::StringLit => {
+                let raw_str = value.lexeme;
+                let content = if raw_str.starts_with('"') {
+                    raw_str
+                        .strip_prefix('"')
+                        .and_then(|s| s.strip_suffix('"'))
+                        .ok_or_else(|| ScanError::raise())?
+                } else {
+                    raw_str
+                        .strip_prefix('\'')
+                        .and_then(|s| s.strip_suffix('\''))
+                        .ok_or_else(|| ScanError::raise())?
+                };
+                let parsed = content.replace("\\n", "\n")
+                                    .replace("\\t", "\t")
+                                    .replace("\\r", "\r")
+                                    .replace("\\\\", "\\");
+                Ok(parsed.to_string())
+            },
             _ => Err(ScanError::raise()),
         }
     }
