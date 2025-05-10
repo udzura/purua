@@ -15,7 +15,6 @@ pub fn parse(stream: TokenStream) -> Result<Block, String> {
 
     match &result {
         Ok(((block, _), _)) => {
-            dbg!(block);
             Ok(block.clone())
         }
         Err(err) => Err(format!("Parse error: {:?}", err)),
